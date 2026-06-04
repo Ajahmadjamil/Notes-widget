@@ -1,8 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:noteswidgetapp/core/firebase/database_paths.dart';
-import 'package:noteswidgetapp/core/firebase/firebase_database_service.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:noteswidgetapp/features/friends/model/friend.dart';
 import 'package:noteswidgetapp/features/friends/model/friend_request.dart';
 import 'package:noteswidgetapp/features/profile/model/user_profile.dart';
@@ -14,64 +12,25 @@ class UserNotFoundException implements Exception {
 
 class FriendsRepository {
   final UserProfileRepository _profiles = UserProfileRepository();
-  DatabaseReference get _root => FirebaseDatabaseService.rootRef();
+  SupabaseClient get _client => AppSupabase.client;
 
-  String? get _myUid => FirebaseAuth.instance.currentUser?.uid;
+  String? get _myUid => AppSupabase.currentUserId;
 
   Future<UserProfile?> searchUser(String query) async {
     final q = query.trim();
     if (q.isEmpty) return null;
 
-    String? uid;
-
-    if (q.contains('@')) {
-      final email = DatabasePaths.normalizeEmail(q);
-      uid = await _lookupUidFromIndex(DatabasePaths.emailIndex(email));
-      uid ??= await _lookupUidByUserField('email', email);
-    } else {
-      final rawUsername = q.replaceFirst(RegExp(r'^@'), '').trim();
-      final normalized = UserProfileRepository.normalizeUsername(rawUsername);
-      uid = await _lookupUidFromIndex(DatabasePaths.usernameIndex(normalized));
-      uid ??= await _lookupUidByUserField('username', rawUsername);
-      uid ??= await _lookupUidByUserField(
-        'username',
-        normalized,
-        caseInsensitive: true,
-      );
-    }
-
-    if (uid == null) return null;
-    return _profiles.fetchProfile(uid);
-  }
-
-  Future<String?> _lookupUidFromIndex(String path) async {
-    final snap = await _root.child(path).get();
-    if (snap.exists && snap.value != null) {
-      return snap.value.toString();
-    }
-    return null;
-  }
-
-  /// Fallback when /usernames or /emails index was never written.
-  Future<String?> _lookupUidByUserField(
-    String field,
-    String value, {
-    bool caseInsensitive = false,
-  }) async {
     try {
-      final snap = await _root
-          .child('users')
-          .orderByChild(field)
-          .equalTo(caseInsensitive ? value.toLowerCase() : value)
-          .limitToFirst(1)
-          .get();
-
-      if (!snap.exists || snap.children.isEmpty) return null;
-      return snap.children.first.key;
+      final rows = await _client.rpc(
+        'search_profile',
+        params: {'p_query': q},
+      );
+      if (rows is! List || rows.isEmpty) return null;
+      final data = Map<String, dynamic>.from(rows.first as Map);
+      final uid = data['id'] as String;
+      return UserProfile.fromRow(uid, data);
     } catch (e) {
-      if (kDebugMode) {
-        print('search fallback orderByChild($field) failed: $e');
-      }
+      if (kDebugMode) print('search_profile failed: $e');
       return null;
     }
   }
@@ -79,28 +38,52 @@ class FriendsRepository {
   Future<bool> isFriend(String otherUid) async {
     final uid = _myUid;
     if (uid == null) return false;
-    final snap = await _root.child(DatabasePaths.friend(uid, otherUid)).get();
-    return snap.exists;
+
+    final row = await _client
+        .from('friendships')
+        .select('id')
+        .eq('status', 'accepted')
+        .or('and(user_id.eq.$uid,friend_id.eq.$otherUid),and(user_id.eq.$otherUid,friend_id.eq.$uid)')
+        .maybeSingle();
+
+    return row != null;
   }
 
   Future<FriendRequest?> getOutgoingRequest(String toUid) async {
     final uid = _myUid;
     if (uid == null) return null;
-    final snap = await _root.child(DatabasePaths.friendRequest(toUid, uid)).get();
-    if (!snap.exists || snap.value == null) return null;
-    final data = Map<dynamic, dynamic>.from(snap.value as Map);
-    if (data['status'] != 'pending') return null;
-    return FriendRequest.fromSnapshot(uid, toUid, data);
+
+    final row = await _client
+        .from('friendships')
+        .select()
+        .eq('user_id', uid)
+        .eq('friend_id', toUid)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (row == null) return null;
+    return FriendRequest.fromRow(Map<String, dynamic>.from(row));
   }
 
   Future<FriendRequest?> getIncomingRequest(String fromUid) async {
     final uid = _myUid;
     if (uid == null) return null;
-    final snap = await _root.child(DatabasePaths.friendRequest(uid, fromUid)).get();
-    if (!snap.exists || snap.value == null) return null;
-    final data = Map<dynamic, dynamic>.from(snap.value as Map);
-    if (data['status'] != 'pending') return null;
-    return FriendRequest.fromSnapshot(fromUid, uid, data);
+
+    final row = await _client
+        .from('friendships')
+        .select()
+        .eq('user_id', fromUid)
+        .eq('friend_id', uid)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (row == null) return null;
+    final profile = await _profiles.fetchProfile(fromUid);
+    return FriendRequest.fromRow(
+      Map<String, dynamic>.from(row),
+      fromUsername: profile?.username,
+      fromDisplayName: profile?.displayName ?? profile?.username,
+    );
   }
 
   Future<void> sendFriendRequest(String toUid) async {
@@ -122,16 +105,10 @@ class FriendsRepository {
       throw StateError('Friend request already sent');
     }
 
-    final myProfile = await _profiles.fetchProfile(uid);
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    await _root.child(DatabasePaths.friendRequest(toUid, uid)).set({
-      'fromUid': uid,
-      'toUid': toUid,
+    await _client.from('friendships').insert({
+      'user_id': uid,
+      'friend_id': toUid,
       'status': 'pending',
-      'sentAt': now,
-      'fromUsername': myProfile?.username ?? '',
-      'fromDisplayName': myProfile?.displayName ?? myProfile?.username ?? 'User',
     });
   }
 
@@ -139,21 +116,24 @@ class FriendsRepository {
     final uid = _myUid;
     if (uid == null) return [];
 
-    final snap = await _root.child('friendRequests/$uid').get();
-    if (!snap.exists || snap.value == null) return [];
+    final rows = await _client
+        .from('friendships')
+        .select()
+        .eq('friend_id', uid)
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
 
-    final raw = Map<dynamic, dynamic>.from(snap.value as Map);
     final list = <FriendRequest>[];
-
-    for (final entry in raw.entries) {
-      final fromUid = entry.key as String;
-      final data = Map<dynamic, dynamic>.from(entry.value as Map);
-      if (data['status'] == 'pending') {
-        list.add(FriendRequest.fromSnapshot(fromUid, uid, data));
-      }
+    for (final raw in rows as List) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final fromUid = row['user_id'] as String;
+      final profile = await _profiles.fetchProfile(fromUid);
+      list.add(FriendRequest.fromRow(
+        row,
+        fromUsername: profile?.username,
+        fromDisplayName: profile?.displayName ?? profile?.username,
+      ));
     }
-
-    list.sort((a, b) => b.sentAt.compareTo(a.sentAt));
     return list;
   }
 
@@ -161,17 +141,19 @@ class FriendsRepository {
     final uid = _myUid;
     if (uid == null) return [];
 
-    final snap = await _root.child('friends/$uid').get();
-    if (!snap.exists || snap.value == null) return [];
+    final rows = await _client
+        .from('friendships')
+        .select('id, user_id, friend_id, accepted_at, created_at, shared_notes(id)')
+        .eq('status', 'accepted')
+        .or('user_id.eq.$uid,friend_id.eq.$uid');
 
-    final raw = Map<dynamic, dynamic>.from(snap.value as Map);
     final friends = <Friend>[];
-
-    for (final entry in raw.entries) {
-      final friendUid = entry.key as String;
-      final data = Map<dynamic, dynamic>.from(entry.value as Map);
+    for (final raw in rows as List) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final friendUid =
+          row['user_id'] == uid ? row['friend_id'] as String : row['user_id'] as String;
       final profile = await _profiles.fetchProfile(friendUid);
-      friends.add(Friend.fromSnapshot(friendUid, data, profile: profile));
+      friends.add(Friend.fromRow(uid, row, profile: profile));
     }
 
     friends.sort((a, b) => a.displayLabel.compareTo(b.displayLabel));
@@ -182,68 +164,64 @@ class FriendsRepository {
     final myUid = _myUid;
     if (myUid == null) throw StateError('Not signed in');
 
-    final requestSnap =
-        await _root.child(DatabasePaths.friendRequest(myUid, fromUid)).get();
-    if (!requestSnap.exists) {
+    final row = await _client
+        .from('friendships')
+        .select('id')
+        .eq('user_id', fromUid)
+        .eq('friend_id', myUid)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (row == null) {
       throw StateError('Request not found');
     }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final sharedNoteId = DatabasePaths.sharedNoteIdForPair(myUid, fromUid);
-    final sorted = [myUid, fromUid]..sort();
-
-    final updates = <String, dynamic>{
-      DatabasePaths.friend(myUid, fromUid): {
-        'friendUid': fromUid,
-        'since': now,
-        'sharedNoteId': sharedNoteId,
-      },
-      DatabasePaths.friend(fromUid, myUid): {
-        'friendUid': myUid,
-        'since': now,
-        'sharedNoteId': sharedNoteId,
-      },
-      DatabasePaths.sharedNote(sharedNoteId): {
-        'sharedNoteId': sharedNoteId,
-        'user1': sorted[0],
-        'user2': sorted[1],
-        'title': 'Shared note',
-        'body': '',
-        'createdAt': now,
-        'updatedAt': now,
-        'updatedBy': myUid,
-      },
-    };
-
-    await _root.update(updates);
-    await _root.child(DatabasePaths.friendRequest(myUid, fromUid)).remove();
+    final friendshipId = row['id'] as String;
+    await _client.rpc(
+      'accept_friend_request',
+      params: {'p_friendship_id': friendshipId},
+    );
   }
 
   Future<void> declineRequest(String fromUid) async {
     final myUid = _myUid;
     if (myUid == null) throw StateError('Not signed in');
-    await _root.child(DatabasePaths.friendRequest(myUid, fromUid)).remove();
+
+    await _client
+        .from('friendships')
+        .delete()
+        .eq('user_id', fromUid)
+        .eq('friend_id', myUid)
+        .eq('status', 'pending');
   }
 
   Stream<List<FriendRequest>> watchIncomingRequests() {
     final uid = _myUid;
     if (uid == null) return Stream.value([]);
 
-    return _root.child('friendRequests/$uid').onValue.map((event) {
-      if (!event.snapshot.exists || event.snapshot.value == null) {
-        return <FriendRequest>[];
-      }
-      final raw = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
-      final list = <FriendRequest>[];
-      for (final entry in raw.entries) {
-        final fromUid = entry.key as String;
-        final data = Map<dynamic, dynamic>.from(entry.value as Map);
-        if (data['status'] == 'pending') {
-          list.add(FriendRequest.fromSnapshot(fromUid, uid, data));
-        }
-      }
-      list.sort((a, b) => b.sentAt.compareTo(a.sentAt));
-      return list;
-    });
+    return _client
+        .from('friendships')
+        .stream(primaryKey: ['id'])
+        .map((rows) async {
+          final pending = rows
+              .where((r) =>
+                  r['friend_id'] == uid && r['status'] == 'pending')
+              .toList();
+
+          final list = <FriendRequest>[];
+          for (final raw in pending) {
+            final row = Map<String, dynamic>.from(raw);
+            final fromUid = row['user_id'] as String;
+            final profile = await _profiles.fetchProfile(fromUid);
+            list.add(FriendRequest.fromRow(
+              row,
+              fromUsername: profile?.username,
+              fromDisplayName: profile?.displayName ?? profile?.username,
+            ));
+          }
+          list.sort((a, b) => b.sentAt.compareTo(a.sentAt));
+          return list;
+        })
+        .asyncMap((event) => event);
   }
 }

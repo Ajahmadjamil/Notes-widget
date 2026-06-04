@@ -1,4 +1,5 @@
 class FriendRequest {
+  final String friendshipId;
   final String fromUid;
   final String toUid;
   final String status;
@@ -7,6 +8,7 @@ class FriendRequest {
   final String? fromDisplayName;
 
   const FriendRequest({
+    required this.friendshipId,
     required this.fromUid,
     required this.toUid,
     required this.status,
@@ -15,25 +17,28 @@ class FriendRequest {
     this.fromDisplayName,
   });
 
-  factory FriendRequest.fromSnapshot(
-    String fromUid,
-    String toUid,
-    Map<dynamic, dynamic> data,
-  ) {
+  factory FriendRequest.fromRow(
+    Map<String, dynamic> row, {
+    String? fromUsername,
+    String? fromDisplayName,
+  }) {
     return FriendRequest(
-      fromUid: data['fromUid'] as String? ?? fromUid,
-      toUid: data['toUid'] as String? ?? toUid,
-      status: data['status'] as String? ?? 'pending',
-      sentAt: _asInt(data['sentAt']) ?? 0,
-      fromUsername: data['fromUsername'] as String?,
-      fromDisplayName: data['fromDisplayName'] as String?,
+      friendshipId: row['id'] as String,
+      fromUid: row['user_id'] as String,
+      toUid: row['friend_id'] as String,
+      status: row['status'] as String? ?? 'pending',
+      sentAt: _timestampMillis(row['created_at']) ?? 0,
+      fromUsername: fromUsername,
+      fromDisplayName: fromDisplayName,
     );
   }
 
-  static int? _asInt(dynamic value) {
+  static int? _timestampMillis(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value.toString());
+    if (value is String) {
+      return DateTime.tryParse(value)?.millisecondsSinceEpoch;
+    }
+    return null;
   }
 }

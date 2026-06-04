@@ -1,9 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
 import 'package:noteswidgetapp/core/navigation/auth_navigation.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:noteswidgetapp/features/profile/repository/user_profile_repository.dart';
 
 class UsernameSetupController with ChangeNotifier {
@@ -15,7 +14,7 @@ class UsernameSetupController with ChangeNotifier {
   bool isLoading = false;
 
   Future<void> submit(BuildContext context) async {
-    final authUser = FirebaseAuth.instance.currentUser;
+    final authUser = AppSupabase.currentUser;
     if (authUser == null) {
       AppConstants.showToast('Not signed in');
       return;
@@ -40,21 +39,13 @@ class UsernameSetupController with ChangeNotifier {
       AppConstants.showToast('Username is already taken');
     } on InvalidUsernameException catch (e) {
       AppConstants.showToast(e.message);
-    } on FirebaseException catch (e) {
-      if (kDebugMode) {
-        print('Username FirebaseException: ${e.code} ${e.message}');
-      }
-      AppConstants.showToast('Database error: ${e.message ?? e.code}');
     } catch (e, stack) {
       if (kDebugMode) {
         print('Username save error: $e\n$stack');
       }
-      // Profile may have saved; try continuing if username is already on file.
       try {
-        final uid = authUser.uid;
-        final profile = await _repo.fetchProfile(uid);
+        final profile = await _repo.fetchProfile(authUser.id);
         if (profile != null && profile.hasUsername) {
-          await _repo.repairSearchIndexes(uid);
           if (!context.mounted) return;
           AppConstants.showToast('Username saved');
           await AuthNavigation.goAfterAuth(context);

@@ -1,3 +1,11 @@
+# Environment / secrets
+.env
+supabase/.env
+lib/core/supabase/supabase_secrets.dart
+**/firebase-adminsdk*.json
+**/service-account*.json
+secrets/
+
 # Miscellaneous
 *.class
 *.log

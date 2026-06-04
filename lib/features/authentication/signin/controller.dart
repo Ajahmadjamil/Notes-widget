@@ -1,10 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
 import 'package:noteswidgetapp/core/navigation/auth_navigation.dart';
 import 'package:noteswidgetapp/features/authentication/signin/repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginController with ChangeNotifier {
   final SignInRepository _repo = SignInRepository();
@@ -53,7 +53,7 @@ class LoginController with ChangeNotifier {
       }
       if (!context.mounted) return;
       await AuthNavigation.goAfterAuth(context);
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
       AppConstants.showToast(SignInRepository.messageFromAuthException(e));
     } catch (e) {
       if (kDebugMode) print('Email auth error: $e');
@@ -79,8 +79,8 @@ class LoginController with ChangeNotifier {
         if (kDebugMode) print('GoogleSignInException: $msg');
         AppConstants.showToast('Google sign-in failed: $msg');
       }
-    } on FirebaseAuthException catch (e) {
-      if (kDebugMode) print('FirebaseAuthException: ${e.code} ${e.message}');
+    } on AuthException catch (e) {
+      if (kDebugMode) print('AuthException: ${e.message}');
       AppConstants.showToast(SignInRepository.messageFromAuthException(e));
     } catch (e) {
       if (kDebugMode) print('Google sign-in unexpected: $e');

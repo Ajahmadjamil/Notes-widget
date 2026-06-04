@@ -19,25 +19,25 @@ class UserProfile {
 
   bool get hasUsername => username != null && username!.trim().isNotEmpty;
 
-  factory UserProfile.fromSnapshot(String uid, Map<dynamic, dynamic>? data) {
-    if (data == null) {
-      return UserProfile(uid: uid);
-    }
+  factory UserProfile.fromRow(String uid, Map<String, dynamic> data) {
     return UserProfile(
       uid: uid,
       email: data['email'] as String?,
       username: data['username'] as String?,
-      displayName: data['displayName'] as String?,
-      photoUrl: data['photoUrl'] as String?,
-      createdAt: _asInt(data['createdAt']),
-      updatedAt: _asInt(data['updatedAt']),
+      displayName: data['display_name'] as String?,
+      photoUrl: data['photo_url'] as String?,
+      createdAt: _timestampMillis(data['created_at']),
+      updatedAt: _timestampMillis(data['updated_at']),
     );
   }
 
-  static int? _asInt(dynamic value) {
+  static int? _timestampMillis(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value.toString());
+    if (value is String) {
+      final dt = DateTime.tryParse(value);
+      return dt?.millisecondsSinceEpoch;
+    }
+    return null;
   }
 }

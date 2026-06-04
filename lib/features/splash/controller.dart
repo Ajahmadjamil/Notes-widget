@@ -1,6 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/navigation/auth_navigation.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:noteswidgetapp/features/authentication/signin/view.dart';
 
 class SplashController extends ChangeNotifier {
@@ -8,7 +8,7 @@ class SplashController extends ChangeNotifier {
     await Future.delayed(const Duration(seconds: 2));
     if (!context.mounted) return;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AppSupabase.currentUser;
     if (user == null) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),

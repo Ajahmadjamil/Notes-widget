@@ -41,23 +41,14 @@ class Note {
     );
   }
 
-  Map<String, dynamic> toFirebaseMap() => {
-        'noteId': noteId,
-        'ownerId': ownerId,
-        'title': title,
-        'body': body,
-        'createdAt': createdAt,
-        'updatedAt': updatedAt,
-      };
-
-  factory Note.fromFirebase(String noteId, Map<dynamic, dynamic> data) {
+  factory Note.fromSupabase(String noteId, Map<String, dynamic> data) {
     return Note(
       noteId: noteId,
-      ownerId: data['ownerId'] as String? ?? '',
+      ownerId: data['user_id'] as String? ?? '',
       title: data['title'] as String? ?? '',
       body: data['body'] as String? ?? '',
-      createdAt: _asInt(data['createdAt']) ?? 0,
-      updatedAt: _asInt(data['updatedAt']) ?? 0,
+      createdAt: _asInt(data['created_at']) ?? 0,
+      updatedAt: _asInt(data['updated_at']) ?? 0,
     );
   }
 

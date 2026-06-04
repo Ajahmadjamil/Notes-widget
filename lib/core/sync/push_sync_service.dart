@@ -1,16 +1,16 @@
 import 'package:noteswidgetapp/core/network/notification.dart';
 
-/// Delegates to [FirebaseNotificationService] (initialized from main).
 class PushSyncService {
   PushSyncService._();
 
-  static Future<void> initialize() => FirebaseNotificationService.initialize();
+  static Future<void> ensureInitialized() =>
+      PushNotificationService.initialize();
 
   static Future<void> syncFcmTokenForCurrentUser() =>
-      FirebaseNotificationService.syncTokenToDatabase();
+      PushNotificationService.syncTokenToDatabase();
 
   static Future<void> clearTokenOnSignOut() =>
-      FirebaseNotificationService.clearTokenOnSignOut();
+      PushNotificationService.clearTokenOnSignOut();
 
-  static Future<void> dispose() => FirebaseNotificationService.dispose();
+  static Future<void> dispose() => PushNotificationService.dispose();
 }

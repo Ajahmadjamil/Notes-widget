@@ -1,34 +1,34 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:noteswidgetapp/features/notes/data/notes_firebase_data_source.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
+import 'package:noteswidgetapp/features/notes/data/notes_supabase_data_source.dart';
 import 'package:noteswidgetapp/features/notes/data/notes_local_db.dart';
 import 'package:noteswidgetapp/features/notes/model/note.dart';
 import 'package:uuid/uuid.dart';
 
 class NotesRepository {
   final NotesLocalDb _local = NotesLocalDb.instance;
-  final NotesFirebaseDataSource _remote = NotesFirebaseDataSource();
+  final NotesSupabaseDataSource _remote = NotesSupabaseDataSource();
   final Connectivity _connectivity = Connectivity();
   final Uuid _uuid = const Uuid();
 
-  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+  String? get _uid => AppSupabase.currentUserId;
 
   Future<bool> get isOnline async {
     final result = await _connectivity.checkConnectivity();
     return !result.contains(ConnectivityResult.none);
   }
 
-  /// Pull from Firebase, push pending queue, then return local list.
+  /// Pull from Supabase, push pending queue, then return local list.
   Future<void> syncIfOnline() async {
     final uid = _uid;
     if (uid == null) return;
     if (!await isOnline) return;
 
-    await _pullFromFirebase(uid);
+    await _pullFromRemote(uid);
     await _pushPending(uid);
   }
 
-  Future<void> _pullFromFirebase(String uid) async {
+  Future<void> _pullFromRemote(String uid) async {
     final remoteNotes = await _remote.fetchAllNotes(uid);
     final pending = await _local.getPendingNotes(uid);
     final pendingIds = pending.map((n) => n.noteId).toSet();

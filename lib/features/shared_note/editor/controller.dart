@@ -1,9 +1,10 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
+import 'package:noteswidgetapp/core/sync/shared_note_sync_bus.dart';
 import 'package:noteswidgetapp/core/widget/active_widget_note_service.dart';
 import 'package:noteswidgetapp/core/widget/shared_note_widget_cache.dart';
 import 'package:noteswidgetapp/core/widget/widget_sync_policy.dart';
@@ -47,6 +48,7 @@ class SharedNoteEditorController with ChangeNotifier {
   String? _remoteEditHint;
   Timer? _debounceTimer;
   StreamSubscription<SharedNote?>? _subscription;
+  StreamSubscription<SharedNote>? _busSubscription;
 
   static const _autoSaveDelay = Duration(milliseconds: 1500);
 
@@ -73,6 +75,10 @@ class SharedNoteEditorController with ChangeNotifier {
 
     if (note == null || _watchNoteId.isEmpty) return;
 
+    _busSubscription?.cancel();
+    _busSubscription =
+        SharedNoteSyncBus.streamFor(_watchNoteId).listen(_onRemoteNote);
+
     _subscription = _repo.watch(_watchNoteId).listen(
       _onRemoteNote,
       onError: (_) {
@@ -93,6 +99,8 @@ class SharedNoteEditorController with ChangeNotifier {
 
     await _subscription?.cancel();
     _subscription = null;
+    await _busSubscription?.cancel();
+    _busSubscription = null;
     await init();
   }
 
@@ -176,7 +184,7 @@ class SharedNoteEditorController with ChangeNotifier {
     isLoading = false;
     loadError = null;
 
-    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final myUid = AppSupabase.currentUserId;
     final isOwnWrite = remote.updatedBy == myUid;
 
     if (!_fieldsInitialized) {
@@ -297,6 +305,7 @@ class SharedNoteEditorController with ChangeNotifier {
   void dispose() {
     _debounceTimer?.cancel();
     _subscription?.cancel();
+    _busSubscription?.cancel();
     titleController.removeListener(_onLocalEdit);
     bodyController.removeListener(_onLocalEdit);
     titleController.dispose();

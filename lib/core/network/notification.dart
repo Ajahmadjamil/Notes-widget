@@ -1,72 +1,92 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
-import 'package:noteswidgetapp/core/firebase/database_paths.dart';
-import 'package:noteswidgetapp/core/firebase/firebase_database_service.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:noteswidgetapp/core/sync/widget_push_handler.dart';
 import 'package:noteswidgetapp/firebase_options.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// FCM: token → RTDB, visible shared-note notifications, widget sync.
-class FirebaseNotificationService {
-  FirebaseNotificationService._();
+/// Silent FCM — widget sync only, no visible notifications.
+class PushNotificationService {
+  PushNotificationService._();
 
   static const String _widgetSyncType = WidgetPushHandler.dataType;
-  static const String _sharedNoteChannelId = 'notes_shared_note_updates';
-  static const String _sharedNoteChannelName = 'Shared note updates';
 
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  static final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
-
   static StreamSubscription<String>? _tokenRefreshSub;
   static bool _foregroundListenersAttached = false;
-  static bool _localNotificationsReady = false;
+  static bool _initialized = false;
+  static bool _firebaseReady = false;
 
   @pragma('vm:entry-point')
   static Future<void> backgroundMessageHandler(RemoteMessage message) async {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await _ensureLocalNotifications();
+    await _ensureFirebaseInitialized();
+    try {
+      await AppSupabase.initialize();
+    } catch (e) {
+      if (kDebugMode) print('Background Supabase init: $e');
+    }
     await _handleRemoteMessage(message, isBackground: true);
   }
 
   static Future<void> initialize() async {
+    if (_initialized) {
+      await syncTokenToDatabase();
+      return;
+    }
+    _initialized = true;
+
+    await _ensureFirebaseInitialized();
     await _requestPermissions();
-    await _ensureLocalNotifications();
 
     if (!_foregroundListenersAttached) {
       _foregroundListenersAttached = true;
 
-      _tokenRefreshSub ??= _messaging.onTokenRefresh.listen(_saveTokenToDatabase);
+      _tokenRefreshSub ??=
+          _messaging.onTokenRefresh.listen(_saveTokenToSupabase);
 
       FirebaseMessaging.onMessage.listen((message) async {
         await _handleRemoteMessage(message, isBackground: false);
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((message) async {
-        if (kDebugMode) print('Notification opened app: ${message.data}');
+        if (kDebugMode) print('FCM opened app: ${message.data}');
         await WidgetPushHandler.applyFromData(message.data);
       });
+    }
+
+    final initialMessage = await _messaging.getInitialMessage();
+    if (initialMessage != null) {
+      if (kDebugMode) print('FCM initial message: ${initialMessage.data}');
+      await WidgetPushHandler.applyFromData(initialMessage.data);
     }
 
     await _messaging.setAutoInitEnabled(true);
     await syncTokenToDatabase();
   }
 
+  static Future<void> _ensureFirebaseInitialized() async {
+    if (_firebaseReady) return;
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+    _firebaseReady = true;
+  }
+
   static Future<void> syncTokenToDatabase() async {
+    if (AppSupabase.currentUserId == null) return;
+
     try {
       final token = await _messaging.getToken();
       AppConstants.deviceToken = token ?? '';
       if (token != null) {
-        await _saveTokenToDatabase(token);
+        await _saveTokenToSupabase(token);
       } else if (kDebugMode) {
         print('FCM: getToken returned null');
       }
@@ -77,13 +97,13 @@ class FirebaseNotificationService {
   }
 
   static Future<void> clearTokenOnSignOut() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppSupabase.currentUserId;
     if (uid != null) {
       try {
-        await FirebaseDatabaseService.rootRef().child(DatabasePaths.user(uid)).update({
-          'fcmToken': null,
-          'fcmUpdatedAt': null,
-        });
+        await AppSupabase.client.from('profiles').update({
+          'fcm_token': null,
+          'fcm_token_updated_at': null,
+        }).eq('id', uid);
       } catch (e) {
         if (kDebugMode) print('FCM token clear failed: $e');
       }
@@ -110,49 +130,20 @@ class FirebaseNotificationService {
     }
 
     final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
+      alert: false,
+      badge: false,
+      sound: false,
     );
 
     if (kDebugMode) {
-      print('Notification permission: ${settings.authorizationStatus}');
+      print('FCM permission (silent): ${settings.authorizationStatus}');
     }
 
     await _messaging.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
+      alert: false,
+      badge: false,
+      sound: false,
     );
-  }
-
-  static Future<void> _ensureLocalNotifications() async {
-    if (_localNotificationsReady) return;
-
-    const initSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(),
-    );
-
-    await _localNotifications.initialize(initSettings);
-
-    if (Platform.isAndroid) {
-      final androidPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-
-      await androidPlugin?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          _sharedNoteChannelId,
-          _sharedNoteChannelName,
-          description: 'When a friend updates your shared note',
-          importance: Importance.high,
-          playSound: true,
-        ),
-      );
-    }
-
-    _localNotificationsReady = true;
   }
 
   static Future<void> _handleRemoteMessage(
@@ -164,85 +155,27 @@ class FirebaseNotificationService {
     }
 
     if (message.data['type'] == _widgetSyncType) {
-      await WidgetPushHandler.applyFromData(message.data);
-
-      final title = message.notification?.title ??
-          message.data['notificationTitle'] as String? ??
-          'Shared note updated';
-      final body = message.notification?.body ??
-          message.data['notificationBody'] as String? ??
-          _previewFromData(message.data);
-
-      // Foreground: FCM does not always show a banner — use local notification.
-      // Background with data-only: show local; with notification payload OS shows it too.
-      if (!isBackground || message.notification == null) {
-        await _showSharedNoteNotification(title, body);
-      }
-      return;
-    }
-
-    if (message.notification != null) {
-      await _showSharedNoteNotification(
-        message.notification!.title,
-        message.notification!.body,
+      await WidgetPushHandler.applyFromData(
+        message.data,
+        usePayloadOnly: isBackground,
       );
-      return;
-    }
-
-    final title = message.data['notificationTitle'] as String?;
-    final body = message.data['notificationBody'] as String?;
-    if (title != null || body != null) {
-      await _showSharedNoteNotification(title, body);
     }
   }
 
-  static String _previewFromData(Map<String, dynamic> data) {
-    final noteBody = (data['body'] as String? ?? '').trim();
-    if (noteBody.isEmpty) return 'Your friend updated the shared note';
-    if (noteBody.length > 80) return '${noteBody.substring(0, 80)}…';
-    return noteBody;
-  }
-
-  static Future<void> _showSharedNoteNotification(String? title, String? body) async {
-    await _ensureLocalNotifications();
-
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        _sharedNoteChannelId,
-        _sharedNoteChannelName,
-        channelDescription: 'When a friend updates your shared note',
-        importance: Importance.high,
-        priority: Priority.high,
-        visibility: NotificationVisibility.public,
-        icon: '@mipmap/ic_launcher',
-      ),
-      iOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      ),
-    );
-
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      title ?? 'Shared note updated',
-      body ?? 'Your friend updated the shared note',
-      details,
-    );
-  }
-
-  static Future<void> _saveTokenToDatabase(String token) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+  static Future<void> _saveTokenToSupabase(String token) async {
+    final uid = AppSupabase.currentUserId;
     if (uid == null) return;
 
     try {
-      await FirebaseDatabaseService.rootRef().child(DatabasePaths.user(uid)).update({
-        'fcmToken': token,
-        'fcmUpdatedAt': DateTime.now().millisecondsSinceEpoch,
-      });
+      await AppSupabase.client.from('profiles').update({
+        'fcm_token': token,
+        'fcm_token_updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', uid);
       if (kDebugMode) print('FCM token saved for $uid');
     } catch (e) {
       if (kDebugMode) print('FCM token write failed: $e');
     }
   }
 }
+
+typedef FirebaseNotificationService = PushNotificationService;

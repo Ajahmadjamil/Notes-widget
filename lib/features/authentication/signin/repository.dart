@@ -1,43 +1,43 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignInRepository {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  SupabaseClient get _client => AppSupabase.client;
 
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser => _client.auth.currentUser;
 
-  Stream<User?> authStateChanges() => _auth.authStateChanges();
+  Stream<AuthState> authStateChanges() => _client.auth.onAuthStateChange;
 
-  Future<UserCredential> signInWithEmail({
+  Future<AuthResponse> signInWithEmail({
     required String email,
     required String password,
   }) {
-    return _auth.signInWithEmailAndPassword(
+    return _client.auth.signInWithPassword(
       email: email.trim(),
       password: password,
     );
   }
 
-  Future<UserCredential> signUpWithEmail({
+  Future<AuthResponse> signUpWithEmail({
     required String email,
     required String password,
   }) {
-    return _auth.createUserWithEmailAndPassword(
+    return _client.auth.signUp(
       email: email.trim(),
       password: password,
     );
   }
 
-  Future<UserCredential> signInWithGoogle() async {
+  Future<AuthResponse> signInWithGoogle() async {
     if (kDebugMode) {
       print('Google sign-in: start');
     }
 
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
-      throw FirebaseAuthException(
-        code: 'google-sign-in-not-supported',
-        message: 'Google Sign-In is not supported on this platform.',
+      throw AuthException(
+        'Google Sign-In is not supported on this platform.',
       );
     }
 
@@ -60,36 +60,34 @@ class SignInRepository {
 
       if (kDebugMode) {
         print(
-          'Google sign-in: idToken ${idToken != null ? "received" : "MISSING — check SHA-1 + web client ID"}',
+          'Google sign-in: idToken ${idToken != null ? "received" : "MISSING"}',
         );
       }
 
       if (idToken == null) {
-        throw FirebaseAuthException(
-          code: 'missing-google-id-token',
-          message:
-              'Google ID token was empty. Add your app SHA-1 in Firebase Console, enable Google sign-in, and rebuild.',
+        throw AuthException(
+          'Google ID token was empty. Enable Google in Supabase Auth and check SHA-1 / web client ID.',
         );
       }
 
-      final credential = GoogleAuthProvider.credential(idToken: idToken);
-      final userCredential = await _auth.signInWithCredential(credential);
+      final response = await _client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
 
       if (kDebugMode) {
-        print(
-          'Google sign-in: Firebase success — uid=${userCredential.user?.uid}',
-        );
+        print('Google sign-in: Supabase success — uid=${response.user?.id}');
       }
 
-      return userCredential;
+      return response;
     } on GoogleSignInException catch (e) {
       if (kDebugMode) {
         print('Google sign-in: GoogleSignInException ${e.code} — $e');
       }
       rethrow;
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
       if (kDebugMode) {
-        print('Google sign-in: FirebaseAuthException ${e.code} — ${e.message}');
+        print('Google sign-in: AuthException — ${e.message}');
       }
       rethrow;
     } catch (e, stack) {
@@ -108,35 +106,23 @@ class SignInRepository {
         print('Google sign out: $e');
       }
     }
-    await _auth.signOut();
+    await _client.auth.signOut();
   }
 
-  static String messageFromAuthException(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-email':
-        return 'Invalid email address.';
-      case 'user-disabled':
-        return 'This account has been disabled.';
-      case 'user-not-found':
-        return 'No account found for this email.';
-      case 'wrong-password':
-        return 'Incorrect password.';
-      case 'email-already-in-use':
-        return 'An account already exists for this email.';
-      case 'weak-password':
-        return 'Password is too weak (use at least 6 characters).';
-      case 'invalid-credential':
-        return 'Invalid email or password.';
-      case 'operation-not-allowed':
-        return 'This sign-in method is not enabled in Firebase.';
-      case 'account-exists-with-different-credential':
-        return 'An account already exists with a different sign-in method.';
-      case 'google-sign-in-not-supported':
-        return e.message ?? 'Google Sign-In is not supported.';
-      case 'missing-google-id-token':
-        return e.message ?? 'Google sign-in configuration is incomplete.';
-      default:
-        return e.message ?? 'Authentication failed (${e.code}).';
+  static String messageFromAuthException(AuthException e) {
+    final msg = e.message.toLowerCase();
+    if (msg.contains('invalid login credentials')) {
+      return 'Invalid email or password.';
     }
+    if (msg.contains('email not confirmed')) {
+      return 'Please confirm your email before signing in.';
+    }
+    if (msg.contains('user already registered')) {
+      return 'An account already exists for this email.';
+    }
+    if (msg.contains('password')) {
+      return e.message;
+    }
+    return e.message;
   }
 }

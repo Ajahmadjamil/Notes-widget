@@ -1,7 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
-import 'package:noteswidgetapp/core/firebase/database_paths.dart';
 import 'package:noteswidgetapp/features/friends/repository/friends_repository.dart';
 import 'package:noteswidgetapp/features/shared_note/editor/view.dart';
 
@@ -11,7 +9,6 @@ class DeepLinkHandler {
 
   static Uri? _pendingUri;
 
-  /// Call once at startup before navigation.
   static Future<void> captureWidgetLaunchUri() async {
     try {
       final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
@@ -28,7 +25,6 @@ class DeepLinkHandler {
     });
   }
 
-  /// After auth + home is ready, consume pending widget launch.
   static Future<bool> openPendingSharedNote(BuildContext context) async {
     final uri = _pendingUri;
     _pendingUri = null;
@@ -47,13 +43,9 @@ class DeepLinkHandler {
     String? friendUid;
 
     try {
-      final myUid = FirebaseAuth.instance.currentUser?.uid;
       final friends = await FriendsRepository().fetchFriends();
       for (final f in friends) {
-        final pairId = myUid != null
-            ? DatabasePaths.sharedNoteIdForPair(myUid, f.friendUid)
-            : '';
-        if (f.sharedNoteId == noteId || pairId == noteId) {
+        if (f.sharedNoteId == noteId) {
           friendUid = f.friendUid;
           break;
         }

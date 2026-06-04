@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
 import 'package:noteswidgetapp/core/navigation/deep_link_handler.dart';
 import 'package:noteswidgetapp/core/sync/push_sync_service.dart';
+import 'package:noteswidgetapp/core/sync/shared_note_inbound_sync.dart';
+import 'package:noteswidgetapp/core/sync/shared_note_poll_service.dart';
 import 'package:noteswidgetapp/core/sync/shared_note_realtime_service.dart';
 import 'package:noteswidgetapp/core/widget/home_widget_service.dart';
 import 'package:noteswidgetapp/core/widget/widget_setup_helper.dart';
@@ -26,9 +28,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _bootstrap() async {
-    await PushSyncService.initialize();
+    await PushSyncService.ensureInitialized();
     await HomeWidgetService.syncOnAppLaunch();
     await SharedNoteRealtimeService.instance.start();
+    SharedNotePollService.instance.start();
     WidgetSetupHelper.requestPinIfNeeded();
 
     if (!mounted) return;
@@ -40,10 +43,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      PushSyncService.syncFcmTokenForCurrentUser();
-      SharedNoteRealtimeService.instance.refresh();
-      HomeWidgetService.syncFromCache();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        SharedNotePollService.instance.resume();
+        PushSyncService.syncFcmTokenForCurrentUser();
+        SharedNoteRealtimeService.instance.refresh();
+        SharedNoteInboundSync.syncActiveWidgetNote();
+        HomeWidgetService.syncFromCache();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        SharedNotePollService.instance.pause();
+        break;
+      case AppLifecycleState.detached:
+        SharedNotePollService.instance.stop();
+        break;
     }
   }
 
@@ -89,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _signOut(BuildContext context) async {
+    SharedNotePollService.instance.stop();
     await SharedNoteRealtimeService.instance.stop();
     await PushSyncService.clearTokenOnSignOut();
     await PushSyncService.dispose();

@@ -1,94 +1,135 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
-import 'package:noteswidgetapp/core/firebase/database_paths.dart';
-import 'package:noteswidgetapp/core/firebase/firebase_database_service.dart';
-import 'package:noteswidgetapp/core/widget/shared_note_widget_cache.dart';
-import 'package:noteswidgetapp/core/widget/widget_sync_policy.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
+import 'package:noteswidgetapp/core/sync/shared_note_inbound_sync.dart';
+import 'package:noteswidgetapp/core/widget/active_widget_note_service.dart';
 import 'package:noteswidgetapp/features/friends/repository/friends_repository.dart';
-import 'package:noteswidgetapp/features/shared_note/model/shared_note.dart';
+import 'package:noteswidgetapp/features/shared_note/repository/shared_note_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Listens to friend shared notes while the app process is alive (foreground/background).
+/// Supabase Realtime (Postgres changes) for shared notes while the app is alive.
 class SharedNoteRealtimeService {
   SharedNoteRealtimeService._();
   static final SharedNoteRealtimeService instance = SharedNoteRealtimeService._();
 
-  final Map<String, StreamSubscription<DatabaseEvent>> _subs = {};
+  RealtimeChannel? _channel;
   final FriendsRepository _friendsRepo = FriendsRepository();
+  final SharedNoteRepository _notesRepo = SharedNoteRepository();
+  final Map<String, String> _noteIdToFriendLabel = {};
+  final Set<String> _trackedNoteIds = {};
 
   bool _running = false;
 
   Future<void> start() async {
     if (_running) return;
     _running = true;
-    await _reloadListeners();
+    await _subscribe();
+    await SharedNoteInboundSync.syncActiveWidgetNote();
   }
 
   Future<void> stop() async {
     _running = false;
-    for (final sub in _subs.values) {
-      await sub.cancel();
+    if (_channel != null) {
+      await AppSupabase.client.removeChannel(_channel!);
+      _channel = null;
     }
-    _subs.clear();
+    _noteIdToFriendLabel.clear();
+    _trackedNoteIds.clear();
   }
 
   Future<void> refresh() async {
     if (!_running) return;
-    await _reloadListeners();
+    await _reloadTrackedNotes();
+    await _subscribe();
+    await SharedNoteInboundSync.syncActiveWidgetNote();
   }
 
-  Future<void> _reloadListeners() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+  Future<void> _reloadTrackedNotes() async {
+    _noteIdToFriendLabel.clear();
+    _trackedNoteIds.clear();
+
+    final uid = AppSupabase.currentUserId;
     if (uid == null) return;
 
     final friends = await _friendsRepo.fetchFriends();
-    final activeIds = friends
-        .where((f) => f.sharedNoteId.isNotEmpty)
-        .map((f) => f.sharedNoteId)
-        .toSet();
-
-    for (final id in _subs.keys.toList()) {
-      if (!activeIds.contains(id)) {
-        await _subs[id]?.cancel();
-        _subs.remove(id);
-      }
+    for (final f in friends) {
+      if (f.sharedNoteId.isEmpty) continue;
+      _trackedNoteIds.add(f.sharedNoteId);
+      _noteIdToFriendLabel[f.sharedNoteId] = f.displayLabel;
     }
 
-    for (final friend in friends) {
-      if (friend.sharedNoteId.isEmpty) continue;
-      if (_subs.containsKey(friend.sharedNoteId)) continue;
+    final activeId = await ActiveWidgetNoteService.getActiveNoteId();
+    if (activeId != null && activeId.isNotEmpty) {
+      _trackedNoteIds.add(activeId);
+    }
 
-      final ref = FirebaseDatabaseService.rootRef()
-          .child(DatabasePaths.sharedNote(friend.sharedNoteId));
+    if (kDebugMode) {
+      print('Realtime: tracking ${_trackedNoteIds.length} shared note(s)');
+    }
+  }
 
-      _subs[friend.sharedNoteId] = ref.onValue.listen((event) async {
-        if (!event.snapshot.exists || event.snapshot.value == null) return;
+  Future<void> _subscribe() async {
+    final uid = AppSupabase.currentUserId;
+    if (uid == null) return;
 
-        final note = SharedNote.fromSnapshot(
-          friend.sharedNoteId,
-          Map<dynamic, dynamic>.from(event.snapshot.value as Map),
-        );
+    await _reloadTrackedNotes();
 
-        if (!note.involvesUser(uid)) return;
+    if (_channel != null) {
+      await AppSupabase.client.removeChannel(_channel!);
+      _channel = null;
+    }
 
-        if (!await WidgetSyncPolicy.shouldUpdateHomeWidget(note.sharedNoteId)) {
-          return;
-        }
+    _channel = AppSupabase.client.channel('shared_notes_live');
 
-        if (kDebugMode) {
-          print('Realtime widget sync: ${note.sharedNoteId} by ${note.updatedBy}');
-        }
+    _channel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'shared_notes',
+          callback: (payload) => _onNoteChanged(payload),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'shared_notes',
+          callback: (payload) => _onNoteChanged(payload),
+        )
+        .subscribe((status, [error]) {
+          if (kDebugMode) {
+            print('Realtime channel status: $status ${error ?? ''}');
+          }
+        });
+  }
 
-        await SharedNoteWidgetCache.update(
-          sharedNoteId: note.sharedNoteId,
-          title: note.title,
-          body: note.body,
-          updatedAt: note.updatedAt,
-          friendLabel: friend.displayLabel,
-        );
-      });
+  Future<void> _onNoteChanged(PostgresChangePayload payload) async {
+    if (!_running) return;
+
+    final record = payload.newRecord;
+    final noteId = record['id'] as String?;
+    if (noteId == null || noteId.isEmpty) return;
+
+    if (_trackedNoteIds.isNotEmpty && !_trackedNoteIds.contains(noteId)) {
+      return;
+    }
+    if (_trackedNoteIds.isEmpty) {
+      return;
+    }
+
+    try {
+      final note = await _notesRepo.fetchOnce(noteId);
+      if (note == null) return;
+
+      if (kDebugMode) {
+        print('Realtime postgres change: $noteId by ${note.updatedBy}');
+      }
+
+      await SharedNoteInboundSync.apply(
+        note,
+        friendLabel: _noteIdToFriendLabel[noteId] ?? '',
+      );
+    } catch (e) {
+      if (kDebugMode) print('Realtime _onNoteChanged error: $e');
     }
   }
 }

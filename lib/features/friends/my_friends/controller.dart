@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
 import 'package:noteswidgetapp/features/friends/model/friend.dart';
@@ -71,7 +71,7 @@ class MyFriendsController with ChangeNotifier {
       if (user == null) {
         searchStatusMessage = 'No user found';
         searchResult = null;
-      } else if (user.uid == FirebaseAuth.instance.currentUser?.uid) {
+      } else if (user.uid == AppSupabase.currentUserId) {
         searchResult = null;
         searchStatusMessage = 'That is your account';
       } else {

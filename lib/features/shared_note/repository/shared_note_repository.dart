@@ -1,333 +1,227 @@
-import 'package:firebase_auth/firebase_auth.dart';
-
-import 'package:firebase_database/firebase_database.dart';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-
-import 'package:noteswidgetapp/core/firebase/database_paths.dart';
-
-import 'package:noteswidgetapp/core/firebase/firebase_database_service.dart';
-
+import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
+import 'package:noteswidgetapp/core/sync/shared_note_sync_bus.dart';
 import 'package:noteswidgetapp/core/widget/shared_note_widget_cache.dart';
-
 import 'package:noteswidgetapp/features/shared_note/model/shared_note.dart';
-
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SharedNoteAccessDeniedException implements Exception {
-
   const SharedNoteAccessDeniedException();
-
 }
 
-
-
 class SharedNoteRepository {
+  SupabaseClient get _client => AppSupabase.client;
+  String? get _myUid => AppSupabase.currentUserId;
 
-  DatabaseReference get _root => FirebaseDatabaseService.rootRef();
-
-  String? get _myUid => FirebaseAuth.instance.currentUser?.uid;
-
-
-
-  /// Loads the latest note from RTDB, resolving ID from friend link if needed.
+  static const _noteSelect =
+      'id, friendship_id, title, body, created_at, updated_at, updated_by, '
+      'friendships(id, user_id, friend_id)';
 
   Future<SharedNote?> resolveAndFetch({
-
     required String preferredId,
-
     String? friendUid,
-
   }) async {
-
-    final ids = await _candidateNoteIds(preferredId: preferredId, friendUid: friendUid);
-
-
+    final ids = await _candidateNoteIds(
+      preferredId: preferredId,
+      friendUid: friendUid,
+    );
 
     for (final id in ids) {
-
       try {
-
         final note = await fetchOnce(id);
-
         if (note != null) return note;
-
       } on SharedNoteAccessDeniedException {
-
         if (kDebugMode) print('Shared note access denied for $id');
-
       }
-
     }
-
-
 
     if (friendUid != null && _myUid != null) {
-      final fallbackId = ids.isNotEmpty
-          ? ids.first
-          : DatabasePaths.sharedNoteIdForPair(_myUid!, friendUid);
-      return _ensureSharedNoteForFriend(_myUid!, friendUid, fallbackId);
+      return _ensureSharedNoteForFriend(_myUid!, friendUid);
     }
 
-
-
     return null;
-
   }
 
-
-
   Future<List<String>> _candidateNoteIds({
-
     required String preferredId,
-
     String? friendUid,
-
   }) async {
-
     final uid = _myUid;
-
     final ids = <String>[];
 
-    // Prefer canonical pair id for this friend so we never load another friend's note.
     if (uid != null && friendUid != null) {
-      ids.add(DatabasePaths.sharedNoteIdForPair(uid, friendUid));
-
-      final friendSnap = await _root.child(DatabasePaths.friend(uid, friendUid)).get();
-      if (friendSnap.exists && friendSnap.value != null) {
-        final data = Map<dynamic, dynamic>.from(friendSnap.value as Map);
-        final fromFriend = data['sharedNoteId'] as String? ?? '';
-        if (fromFriend.isNotEmpty) ids.add(fromFriend);
-      }
+      final noteId = await _noteIdForFriendPair(uid, friendUid);
+      if (noteId != null && noteId.isNotEmpty) ids.add(noteId);
     }
 
     if (preferredId.isNotEmpty) ids.add(preferredId);
-
     return ids.toSet().toList();
-
   }
 
+  Future<String?> _noteIdForFriendPair(String myUid, String friendUid) async {
+    final friendship = await _friendshipRow(myUid, friendUid);
+    if (friendship == null) return null;
 
+    final note = await _client
+        .from('shared_notes')
+        .select('id')
+        .eq('friendship_id', friendship['id'] as String)
+        .maybeSingle();
+
+    return note?['id'] as String?;
+  }
+
+  Future<Map<String, dynamic>?> _friendshipRow(
+    String myUid,
+    String friendUid,
+  ) async {
+    final row = await _client
+        .from('friendships')
+        .select('id')
+        .eq('status', 'accepted')
+        .or('and(user_id.eq.$myUid,friend_id.eq.$friendUid),and(user_id.eq.$friendUid,friend_id.eq.$myUid)')
+        .maybeSingle();
+    if (row == null) return null;
+    return Map<String, dynamic>.from(row);
+  }
 
   Future<SharedNote?> _ensureSharedNoteForFriend(
-
     String myUid,
-
     String friendUid,
-
-    String sharedNoteId,
-
   ) async {
+    final friendship = await _friendshipRow(myUid, friendUid);
+    if (friendship == null) return null;
 
-    final friendSnap = await _root.child(DatabasePaths.friend(myUid, friendUid)).get();
+    final friendshipId = friendship['id'] as String;
+    final existing = await _client
+        .from('shared_notes')
+        .select(_noteSelect)
+        .eq('friendship_id', friendshipId)
+        .maybeSingle();
 
-    if (!friendSnap.exists) return null;
-
-
-
-    final existing = await _root.child(DatabasePaths.sharedNote(sharedNoteId)).get();
-
-    if (existing.exists && existing.value != null) {
-
-      return fetchOnce(sharedNoteId);
-
+    if (existing != null) {
+      return fetchOnce(existing['id'] as String);
     }
 
+    final inserted = await _client
+        .from('shared_notes')
+        .insert({
+          'friendship_id': friendshipId,
+          'title': 'Shared note',
+          'body': '',
+          'updated_by': myUid,
+        })
+        .select(_noteSelect)
+        .single();
 
+    if (kDebugMode) {
+      print('Created missing shared note for friendship $friendshipId');
+    }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    final sorted = [myUid, friendUid]..sort();
-
-    final data = <String, dynamic>{
-
-      'sharedNoteId': sharedNoteId,
-
-      'user1': sorted[0],
-
-      'user2': sorted[1],
-
-      'title': 'Shared note',
-
-      'body': '',
-
-      'createdAt': now,
-
-      'updatedAt': now,
-
-      'updatedBy': myUid,
-
-    };
-
-
-
-    await _root.child(DatabasePaths.sharedNote(sharedNoteId)).set(data);
-
-
-
-    final updates = <String, dynamic>{
-
-      '${DatabasePaths.friend(myUid, friendUid)}/sharedNoteId': sharedNoteId,
-
-      '${DatabasePaths.friend(friendUid, myUid)}/sharedNoteId': sharedNoteId,
-
-    };
-
-    await _root.update(updates);
-
-
-
-    if (kDebugMode) print('Created missing shared note at $sharedNoteId');
-
-    return SharedNote.fromSnapshot(sharedNoteId, data);
-
+    final note = SharedNote.fromRow(Map<String, dynamic>.from(inserted));
+    _assertAccess(note);
+    return note;
   }
-
-
 
   Future<SharedNote?> fetchOnce(String sharedNoteId) async {
+    final row = await _client
+        .from('shared_notes')
+        .select(_noteSelect)
+        .eq('id', sharedNoteId)
+        .maybeSingle();
 
-    final snap = await _root.child(DatabasePaths.sharedNote(sharedNoteId)).get();
+    if (row == null) return null;
 
-    if (!snap.exists || snap.value == null) return null;
-
-    final note = SharedNote.fromSnapshot(
-
-      sharedNoteId,
-
-      Map<dynamic, dynamic>.from(snap.value as Map),
-
-    );
-
+    final note = SharedNote.fromRow(Map<String, dynamic>.from(row));
     _assertAccess(note);
-
     return note;
-
   }
-
-
 
   Stream<SharedNote?> watch(String sharedNoteId) {
+    final controller = StreamController<SharedNote?>();
+    RealtimeChannel? channel;
 
-    return _root.child(DatabasePaths.sharedNote(sharedNoteId)).onValue.map((event) {
-
-      if (!event.snapshot.exists || event.snapshot.value == null) {
-
-        return null;
-
-      }
-
-      final note = SharedNote.fromSnapshot(
-
-        sharedNoteId,
-
-        Map<dynamic, dynamic>.from(event.snapshot.value as Map),
-
-      );
-
+    Future<void> emitLatest() async {
       try {
-
-        _assertAccess(note);
-
-      } on SharedNoteAccessDeniedException {
-
-        return null;
-
+        final note = await fetchOnce(sharedNoteId);
+        if (note != null && !controller.isClosed) {
+          SharedNoteSyncBus.emit(note);
+          controller.add(note);
+        }
+      } catch (_) {
+        if (!controller.isClosed) controller.add(null);
       }
-
-      return note;
-
-    });
-
-  }
-
-
-
-  Future<void> save({
-
-    required String sharedNoteId,
-
-    required String title,
-
-    required String body,
-
-  }) async {
-
-    final uid = _myUid;
-
-    if (uid == null) throw StateError('Not signed in');
-
-
-
-    final snap = await _root.child(DatabasePaths.sharedNote(sharedNoteId)).get();
-
-    if (!snap.exists || snap.value == null) {
-
-      throw StateError('Shared note not found');
-
     }
 
+    channel = _client.channel('shared_note_watch:$sharedNoteId');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'shared_notes',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: sharedNoteId,
+          ),
+          callback: (_) => emitLatest(),
+        )
+        .subscribe();
 
+    emitLatest();
 
-    final existing = SharedNote.fromSnapshot(
+    final ch = channel;
+    controller.onCancel = () async {
+      if (ch != null) {
+        await _client.removeChannel(ch);
+      }
+    };
 
-      sharedNoteId,
+    return controller.stream;
+  }
 
-      Map<dynamic, dynamic>.from(snap.value as Map),
+  Future<void> save({
+    required String sharedNoteId,
+    required String title,
+    required String body,
+  }) async {
+    final uid = _myUid;
+    if (uid == null) throw StateError('Not signed in');
 
-    );
-
-    _assertAccess(existing);
-
-
-
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final existing = await fetchOnce(sharedNoteId);
+    if (existing == null) {
+      throw StateError('Shared note not found');
+    }
 
     final trimmedTitle = title.trim().isEmpty ? 'Shared note' : title.trim();
 
-
-
-    await _root.child(DatabasePaths.sharedNote(sharedNoteId)).update({
-
+    await _client.from('shared_notes').update({
       'title': trimmedTitle,
-
       'body': body,
+      'updated_by': uid,
+    }).eq('id', sharedNoteId);
 
-      'updatedAt': now,
-
-      'updatedBy': uid,
-
-    });
-
-
-
-    await SharedNoteWidgetCache.update(
-
-      sharedNoteId: sharedNoteId,
-
-      title: trimmedTitle,
-
-      body: body,
-
-      updatedAt: now,
-
-    );
-
-  }
-
-
-
-  void _assertAccess(SharedNote note) {
-
-    final uid = _myUid;
-
-    if (uid == null || !note.involvesUser(uid)) {
-
-      throw const SharedNoteAccessDeniedException();
-
+    final saved = await fetchOnce(sharedNoteId);
+    if (saved != null) {
+      SharedNoteSyncBus.emit(saved);
     }
 
+    final updatedAt = DateTime.now().millisecondsSinceEpoch;
+
+    await SharedNoteWidgetCache.update(
+      sharedNoteId: sharedNoteId,
+      title: trimmedTitle,
+      body: body,
+      updatedAt: updatedAt,
+    );
   }
 
+  void _assertAccess(SharedNote note) {
+    final uid = _myUid;
+    if (uid == null || !note.involvesUser(uid)) {
+      throw const SharedNoteAccessDeniedException();
+    }
+  }
 }
-
