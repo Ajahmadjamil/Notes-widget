@@ -1,0 +1,34 @@
+{
+  "project_info": {
+    "project_number": "729169247920",
+    "project_id": "noteswidget-debc2",
+    "storage_bucket": "noteswidget-debc2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:729169247920:android:ddec94c937108dcc614575",
+        "android_client_info": {
+          "package_name": "com.ahmadjamil.noteswidgetapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "729169247920-3n8fo8a21iofjj4jbhmnuefehnt8bhum.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDglnZR3URBDJs0XEnHiTm1MpijxM2vimw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,58 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid",
+        ".indexOn": ["username", "email"],
+        "fcmToken": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "fcmUpdatedAt": {
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
+    },
+    "usernames": {
+      "$name": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.val() == auth.uid)"
+      }
+    },
+    "emails": {
+      "$email": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.val() == auth.uid)"
+      }
+    },
+    "notes": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "friendRequests": {
+      "$toUid": {
+        "$fromUid": {
+          ".read": "auth != null && (auth.uid == $toUid || auth.uid == $fromUid)",
+          ".write": "auth != null && (auth.uid == $fromUid || auth.uid == $toUid)"
+        }
+      }
+    },
+    "friends": {
+      "$uid": {
+        "$friendUid": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
+    },
+    "sharedNotes": {
+      "$noteId": {
+        ".read": "auth != null && (data.child('user1').val() == auth.uid || data.child('user2').val() == auth.uid)",
+        ".write": "auth != null && (data.child('user1').val() == auth.uid || data.child('user2').val() == auth.uid || !data.exists())"
+      }
+    }
+  }
+}

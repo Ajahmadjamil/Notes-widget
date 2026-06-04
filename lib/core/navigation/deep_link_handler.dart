@@ -1,0 +1,77 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:noteswidgetapp/core/firebase/database_paths.dart';
+import 'package:noteswidgetapp/features/friends/repository/friends_repository.dart';
+import 'package:noteswidgetapp/features/shared_note/editor/view.dart';
+
+/// Opens the shared note editor from widget deep links.
+class DeepLinkHandler {
+  DeepLinkHandler._();
+
+  static Uri? _pendingUri;
+
+  /// Call once at startup before navigation.
+  static Future<void> captureWidgetLaunchUri() async {
+    try {
+      final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+      if (uri != null) {
+        _pendingUri = uri;
+      }
+    } catch (_) {}
+  }
+
+  static void listenForWidgetClicks(BuildContext context) {
+    HomeWidget.widgetClicked.listen((uri) async {
+      if (!context.mounted) return;
+      await _openFromUri(context, uri);
+    });
+  }
+
+  /// After auth + home is ready, consume pending widget launch.
+  static Future<bool> openPendingSharedNote(BuildContext context) async {
+    final uri = _pendingUri;
+    _pendingUri = null;
+    if (uri == null) return false;
+    return _openFromUri(context, uri);
+  }
+
+  static Future<bool> _openFromUri(BuildContext context, Uri? uri) async {
+    if (uri == null) return false;
+    if (uri.host != 'shared-note') return false;
+
+    final noteId = uri.queryParameters['noteId'];
+    if (noteId == null || noteId.isEmpty) return false;
+
+    final friendLabel = uri.queryParameters['friend'] ?? 'Shared note';
+    String? friendUid;
+
+    try {
+      final myUid = FirebaseAuth.instance.currentUser?.uid;
+      final friends = await FriendsRepository().fetchFriends();
+      for (final f in friends) {
+        final pairId = myUid != null
+            ? DatabasePaths.sharedNoteIdForPair(myUid, f.friendUid)
+            : '';
+        if (f.sharedNoteId == noteId || pairId == noteId) {
+          friendUid = f.friendUid;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    if (!context.mounted) return false;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SharedNoteEditorScreen(
+          key: ValueKey('note_${friendUid ?? 'w'}_$noteId'),
+          sharedNoteId: noteId,
+          friendUid: friendUid,
+          friendLabel: friendLabel,
+        ),
+      ),
+    );
+    return true;
+  }
+}
