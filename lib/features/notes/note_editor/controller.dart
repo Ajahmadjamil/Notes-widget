@@ -121,6 +121,19 @@ class NoteEditorController with ChangeNotifier {
     }
   }
 
+  Future<void> togglePin() async {
+    if (note == null) return;
+
+    try {
+      final pinned = !note!.isPinned;
+      note = await _repo.setPinned(note!, pinned);
+      AppConstants.showToast(pinned ? 'Note pinned' : 'Note unpinned');
+      notifyListeners();
+    } catch (e) {
+      AppConstants.showToast('Could not update pin');
+    }
+  }
+
   Future<bool> deleteNote() async {
     if (note == null) return false;
 

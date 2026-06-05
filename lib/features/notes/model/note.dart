@@ -7,6 +7,7 @@ class Note {
   final int updatedAt;
   final String? pendingSync;
   final bool isDeleted;
+  final bool isPinned;
 
   const Note({
     required this.noteId,
@@ -17,6 +18,7 @@ class Note {
     required this.updatedAt,
     this.pendingSync,
     this.isDeleted = false,
+    this.isPinned = false,
   });
 
   bool get hasPendingSync => pendingSync != null && pendingSync!.isNotEmpty;
@@ -28,6 +30,7 @@ class Note {
     String? pendingSync,
     bool clearPendingSync = false,
     bool? isDeleted,
+    bool? isPinned,
   }) {
     return Note(
       noteId: noteId,
@@ -38,6 +41,7 @@ class Note {
       updatedAt: updatedAt ?? this.updatedAt,
       pendingSync: clearPendingSync ? null : (pendingSync ?? this.pendingSync),
       isDeleted: isDeleted ?? this.isDeleted,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 
@@ -62,6 +66,7 @@ class Note {
       updatedAt: row['updated_at'] as int,
       pendingSync: row['pending_sync'] as String?,
       isDeleted: (row['is_deleted'] as int? ?? 0) == 1,
+      isPinned: (row['is_pinned'] as int? ?? 0) == 1,
     );
   }
 
@@ -74,6 +79,7 @@ class Note {
         'updated_at': updatedAt,
         'pending_sync': pendingSync,
         'is_deleted': isDeleted ? 1 : 0,
+        'is_pinned': isPinned ? 1 : 0,
       };
 
   static int? _asInt(dynamic value) {

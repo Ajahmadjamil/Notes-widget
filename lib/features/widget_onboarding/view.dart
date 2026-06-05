@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:noteswidgetapp/core/shared/animations/app_animations.dart';
+import 'package:noteswidgetapp/core/shared/widgets/app_container.dart';
 import 'package:noteswidgetapp/core/shared/widgets/custom_button.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
@@ -42,39 +44,59 @@ class _WidgetOnboardingScreenState extends State<WidgetOnboardingScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const SizedBox(height: 32),
-                          Icon(
-                            Icons.widgets_outlined,
-                            size: 72,
-                            color: AppColors.primaryColor,
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            'Add the home screen widget',
-                            style: getSemiBoldStyle(
-                              fontSize: 22,
-                              color: AppColors.textColor,
+                          const SizedBox(height: 16),
+                          FadeSlideIn(
+                            child: AppContainer(
+                              borderRadius: 32,
+                              padding: const EdgeInsets.all(28),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Center(
+                                    child: AppContainer(
+                                      borderRadius: 24,
+                                      padding: const EdgeInsets.all(20),
+                                      child: Icon(
+                                        Icons.widgets_outlined,
+                                        size: 56,
+                                        color: AppColors.selectedColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    'Add the home screen widget',
+                                    style: getSemiBoldStyle(
+                                      fontSize: 22,
+                                      color: AppColors.textColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Your shared note updates on the widget in real time — even when the app is closed (after you tap Add on the system dialog).',
+                                    style: getRegularStyle(color: AppColors.textColor2),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _Bullet(text: 'Tap the widget to open that shared note'),
+                                  _Bullet(text: 'Updates when your friend edits'),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Your shared note updates on the widget in real time — even when the app is closed (after you tap Add on the system dialog).',
-                            style: getRegularStyle(color: AppColors.textColor),
-                          ),
-                          const SizedBox(height: 16),
-                          _Bullet(text: 'Tap the widget to open that shared note'),
-                          _Bullet(text: 'Updates when your friend edits'),
                           const Spacer(),
-                          CustomButton(
-                            onTap: controller.isLoading
-                                ? null
-                                : () => controller.addWidget(context),
-                            label: 'Show add widget prompt',
-                            color: AppColors.primaryColor,
-                            widget: const Icon(
-                              Icons.add_to_home_screen,
-                              size: 18,
-                              color: Colors.white,
+                          FadeSlideIn(
+                            delay: const Duration(milliseconds: 200),
+                            child: CustomButton(
+                              onTap: controller.isLoading
+                                  ? null
+                                  : () => controller.addWidget(context),
+                              label: 'Show add widget prompt',
+                              color: AppColors.primaryColor,
+                              widget: const Icon(
+                                Icons.add_to_home_screen,
+                                size: 18,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -83,7 +105,7 @@ class _WidgetOnboardingScreenState extends State<WidgetOnboardingScreen> {
                                 ? null
                                 : () => controller.skip(context),
                             label: 'Continue without widget',
-                            color: Colors.white,
+                            color: AppColors.btnColorLight,
                             style: getMediumStyle(color: AppColors.textColor),
                           ),
                         ],
@@ -93,7 +115,7 @@ class _WidgetOnboardingScreenState extends State<WidgetOnboardingScreen> {
                 ),
                 if (controller.isLoading)
                   Container(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: AppColors.selectedColor.withValues(alpha: 0.4),
                     child: const Center(child: CustomLoading()),
                   ),
               ],

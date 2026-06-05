@@ -9,6 +9,8 @@ class MyNotesController with ChangeNotifier {
   List<Note> notes = [];
   bool isLoading = false;
   bool isOffline = false;
+  bool selectionMode = false;
+  final Set<String> selectedNoteIds = {};
   bool _disposed = false;
 
   void _notify() {
@@ -44,6 +46,61 @@ class MyNotesController with ChangeNotifier {
       _notify();
     } catch (e) {
       AppConstants.showToast('Could not delete note');
+    }
+  }
+
+  void enterSelection(String noteId) {
+    selectionMode = true;
+    selectedNoteIds.add(noteId);
+    _notify();
+  }
+
+  void toggleSelection(String noteId) {
+    if (!selectionMode) return;
+    if (selectedNoteIds.contains(noteId)) {
+      selectedNoteIds.remove(noteId);
+      if (selectedNoteIds.isEmpty) selectionMode = false;
+    } else {
+      selectedNoteIds.add(noteId);
+    }
+    _notify();
+  }
+
+  void exitSelection() {
+    selectionMode = false;
+    selectedNoteIds.clear();
+    _notify();
+  }
+
+  bool isSelected(String noteId) => selectedNoteIds.contains(noteId);
+
+  Future<void> deleteSelected() async {
+    if (selectedNoteIds.isEmpty) return;
+    final toDelete = notes.where((n) => selectedNoteIds.contains(n.noteId)).toList();
+    try {
+      for (final note in toDelete) {
+        await _repo.deleteNote(note);
+      }
+      exitSelection();
+      await loadNotes();
+      AppConstants.showToast('Deleted ${toDelete.length} note(s)');
+    } catch (e) {
+      AppConstants.showToast('Could not delete notes');
+    }
+  }
+
+  Future<void> pinSelected({required bool pinned}) async {
+    if (selectedNoteIds.isEmpty) return;
+    final toPin = notes.where((n) => selectedNoteIds.contains(n.noteId)).toList();
+    try {
+      for (final note in toPin) {
+        await _repo.setPinned(note, pinned);
+      }
+      exitSelection();
+      await loadNotes();
+      AppConstants.showToast(pinned ? 'Pinned ${toPin.length} note(s)' : 'Unpinned ${toPin.length} note(s)');
+    } catch (e) {
+      AppConstants.showToast('Could not update pins');
     }
   }
 

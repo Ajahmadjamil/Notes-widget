@@ -7,7 +7,7 @@ class NotesLocalDb {
   static final NotesLocalDb instance = NotesLocalDb._();
 
   static const _dbName = 'noteswidgetapp_notes.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
   static const tableNotes = 'notes';
 
   Database? _database;
@@ -33,9 +33,17 @@ class NotesLocalDb {
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             pending_sync TEXT,
-            is_deleted INTEGER NOT NULL DEFAULT 0
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            is_pinned INTEGER NOT NULL DEFAULT 0
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE $tableNotes ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0',
+          );
+        }
       },
     );
   }
@@ -46,7 +54,7 @@ class NotesLocalDb {
       tableNotes,
       where: 'owner_id = ? AND is_deleted = 0',
       whereArgs: [ownerId],
-      orderBy: 'updated_at DESC',
+      orderBy: 'is_pinned DESC, updated_at DESC',
     );
     return rows.map((r) => Note.fromLocalMap(r)).toList();
   }

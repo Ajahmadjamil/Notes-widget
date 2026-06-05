@@ -35,7 +35,10 @@ class NotesRepository {
 
     for (final remote in remoteNotes.values) {
       if (pendingIds.contains(remote.noteId)) continue;
-      await _local.upsert(remote);
+      final existing = await _local.getNote(remote.noteId);
+      await _local.upsert(
+        remote.copyWith(isPinned: existing?.isPinned ?? false),
+      );
     }
   }
 
@@ -97,6 +100,27 @@ class NotesRepository {
     final updated = note.copyWith(
       title: title.trim().isEmpty ? 'Untitled' : title.trim(),
       body: body,
+      updatedAt: now,
+      pendingSync: pending,
+    );
+
+    await _local.upsert(updated);
+
+    if (await isOnline) {
+      await _remote.saveNote(uid, updated);
+      await _local.upsert(updated.copyWith(clearPendingSync: true));
+    }
+
+    return updated;
+  }
+
+  Future<Note> setPinned(Note note, bool pinned) async {
+    final uid = _uid!;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final pending = note.pendingSync == 'create' ? 'create' : 'update';
+
+    final updated = note.copyWith(
+      isPinned: pinned,
       updatedAt: now,
       pendingSync: pending,
     );

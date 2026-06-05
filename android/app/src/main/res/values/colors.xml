@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#FF1e2124</color>
+
+    <!-- SyncNotes app palette -->
+    <color name="widget_bg">#FFEFD6</color>
+    <color name="widget_container">#F6D6A4</color>
+    <color name="widget_text_primary">#4A1800</color>
+    <color name="widget_text_secondary">#8B6048</color>
+    <color name="widget_border">#F6D6A4</color>
+</resources>

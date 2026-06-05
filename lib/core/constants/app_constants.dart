@@ -7,6 +7,7 @@ class AppConstants {
   static ValueNotifier<int> badgeVal = ValueNotifier(0);
   static String authToken = "";
   static String deviceToken = "";
+  static String name = "";
 
   static funcShowSnackBar(BuildContext context, String messageStr) {
     ScaffoldMessenger.of(context).showSnackBar(

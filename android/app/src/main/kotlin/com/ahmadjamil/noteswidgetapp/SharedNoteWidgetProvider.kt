@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
@@ -16,7 +17,7 @@ class SharedNoteWidgetProvider : HomeWidgetProvider() {
         appWidgetIds: IntArray,
         widgetData: SharedPreferences,
     ) {
-        val title = widgetData.getString("shared_note_title", null) ?: "Notes Widget"
+        val title = widgetData.getString("shared_note_title", null) ?: "SyncNotes"
         val body = widgetData.getString("shared_note_body", null)
             ?: "Add a friend to see your shared note"
         val noteId = widgetData.getString("active_shared_note_id", null)
@@ -26,6 +27,13 @@ class SharedNoteWidgetProvider : HomeWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.shared_note_widget_layout).apply {
                 setTextViewText(R.id.widget_title, title)
                 setTextViewText(R.id.widget_body, body)
+
+                if (!noteId.isNullOrEmpty() && friendLabel.isNotBlank()) {
+                    setTextViewText(R.id.widget_friend_label, "WITH $friendLabel")
+                    setViewVisibility(R.id.widget_friend_label, View.VISIBLE)
+                } else {
+                    setViewVisibility(R.id.widget_friend_label, View.GONE)
+                }
 
                 val launchIntent = if (!noteId.isNullOrEmpty()) {
                     val uri = Uri.parse(

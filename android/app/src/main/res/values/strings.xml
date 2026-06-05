@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Notes Widget</string>
-    <string name="shared_note_widget_description">Shows your shared note with a friend</string>
+    <string name="app_name">SyncNotes</string>
+    <string name="shared_note_widget_description">SyncNotes shared note widget</string>
 </resources>

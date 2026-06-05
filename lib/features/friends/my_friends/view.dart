@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:noteswidgetapp/core/shared/animations/app_animations.dart';
+import 'package:noteswidgetapp/core/shared/widgets/app_container.dart';
 import 'package:noteswidgetapp/core/shared/widgets/custom_button.dart';
+import 'package:noteswidgetapp/core/shared/widgets/input_field.dart';
+import 'package:noteswidgetapp/core/shared/widgets/segment_toggle.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
+import 'package:noteswidgetapp/core/theme/app_dimensions.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/features/friends/model/friend_request.dart';
 import 'package:noteswidgetapp/features/friends/my_friends/controller.dart';
@@ -8,7 +13,9 @@ import 'package:noteswidgetapp/features/friends/friend_widget_prompt.dart';
 import 'package:provider/provider.dart';
 
 class MyFriendsTab extends StatefulWidget {
-  const MyFriendsTab({super.key});
+  final MyFriendsController? controller;
+
+  const MyFriendsTab({super.key, this.controller});
 
   @override
   State<MyFriendsTab> createState() => _MyFriendsTabState();
@@ -16,7 +23,8 @@ class MyFriendsTab extends StatefulWidget {
 
 class _MyFriendsTabState extends State<MyFriendsTab>
     with AutomaticKeepAliveClientMixin {
-  late final MyFriendsController _controller;
+  MyFriendsController? _ownController;
+  int _segment = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -24,130 +32,70 @@ class _MyFriendsTabState extends State<MyFriendsTab>
   @override
   void initState() {
     super.initState();
-    _controller = MyFriendsController()..init();
+    if (widget.controller == null) {
+      _ownController = MyFriendsController()..init();
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ownController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ChangeNotifierProvider.value(
-      value: _controller,
-      child: Consumer<MyFriendsController>(
-        builder: (context, controller, _) {
-          if (controller.isLoading && controller.friends.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          return RefreshIndicator(
-            onRefresh: controller.loadAll,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _SearchSection(controller: controller),
-                const SizedBox(height: 20),
-                _SectionHeader(
-                  title: 'Friend requests',
-                  count: controller.incomingRequests.length,
-                ),
-                const SizedBox(height: 8),
-                if (controller.incomingRequests.isEmpty)
-                  Text(
-                    'No pending requests',
-                    style: getRegularStyle(color: AppColors.textColor2),
-                  )
-                else
-                  ...controller.incomingRequests.map(
-                    (r) => _RequestTile(controller: controller, request: r),
-                  ),
-                const SizedBox(height: 20),
-                _SectionHeader(
-                  title: 'My friends',
-                  count: controller.friends.length,
-                ),
-                const SizedBox(height: 8),
-                if (controller.friends.isEmpty)
-                  Text(
-                    'No friends yet — search by username or email',
-                    style: getRegularStyle(color: AppColors.textColor2),
-                  )
-                else
-                  ...controller.friends.map(
-                    (f) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.secondaryColor,
-                        child: Text(
-                          (f.profile?.username ?? f.friendUid)
-                              .substring(0, 1)
-                              .toUpperCase(),
-                          style: getMediumStyle(color: AppColors.primaryColor),
-                        ),
-                      ),
-                      title: Text(
-                        f.displayLabel,
-                        style: getMediumStyle(color: AppColors.textColor),
-                      ),
-                      subtitle: Text(
-                        '${f.subtitle} · Tap to open or show on widget',
-                        style: getRegularStyle(
-                          fontSize: 13,
-                          color: AppColors.textColor2,
-                        ),
-                      ),
-                      trailing: Icon(
-                        Icons.note_alt_outlined,
-                        color: AppColors.primaryColor,
-                        size: 20,
-                      ),
-                      onTap: f.sharedNoteId.isEmpty
-                          ? null
-                          : () => FriendWidgetPrompt.onFriendTap(context, f),
-                    ),
-                  ),
-              ],
-            ),
+    final content = Consumer<MyFriendsController>(
+      builder: (context, controller, _) {
+        if (controller.isLoading && controller.friends.isEmpty) {
+          return Center(
+            child: CircularProgressIndicator(color: AppColors.selectedColor),
           );
-        },
-      ),
-    );
-  }
-}
+        }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final int count;
-
-  const _SectionHeader({required this.title, required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: getSemiBoldStyle(fontSize: 16, color: AppColors.textColor),
-        ),
-        const SizedBox(width: 8),
-        if (count > 0)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor,
-              borderRadius: BorderRadius.circular(12),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: _SearchSection(controller: controller),
             ),
-            child: Text(
-              '$count',
-              style: getRegularStyle(fontSize: 12, color: Colors.white),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SegmentToggle(
+                selectedIndex: _segment,
+                onChanged: (i) => setState(() => _segment = i),
+                labels: const ['MY FRIENDS', 'REQUESTS'],
+                badgeCounts: [0, controller.incomingRequests.length],
+              ),
             ),
-          ),
-      ],
+            const SizedBox(height: 8),
+            Expanded(
+              child: RefreshIndicator(
+                color: AppColors.selectedColor,
+                onRefresh: controller.loadAll,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  child: _segment == 0
+                      ? _FriendsList(
+                          key: const ValueKey('friends'),
+                          controller: controller,
+                        )
+                      : _RequestsList(
+                          key: const ValueKey('requests'),
+                          controller: controller,
+                        ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+
+    if (widget.controller != null) return content;
+    return ChangeNotifierProvider.value(value: _ownController!, child: content);
   }
 }
 
@@ -163,40 +111,37 @@ class _SearchSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Find friends',
-          style: getSemiBoldStyle(fontSize: 16, color: AppColors.textColor),
-        ),
-        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: TextField(
+              child: InputField(
+                hint: 'Username or email',
                 controller: controller.searchController,
-                decoration: InputDecoration(
-                  hintText: 'Username or email',
-                  hintStyle: getRegularStyle(color: AppColors.textFieldPlaceHolderColor),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppColors.textFieldBorderColor),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-                style: getRegularStyle(color: AppColors.textColor),
+                prefixIcon: Icons.search_rounded,
                 textInputAction: TextInputAction.search,
                 onSubmitted: (_) => controller.searchUser(),
               ),
             ),
             const SizedBox(width: 8),
-            IconButton(
-              onPressed: controller.isSearching ? null : () => controller.searchUser(),
-              icon: controller.isSearching
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(Icons.search, color: AppColors.primaryColor),
+            SizedBox(
+              height: AppDimensions.inputFieldHeight,
+              width: AppDimensions.inputFieldHeight,
+              child: AppContainer(
+                borderRadius: 16,
+                onTap: controller.isSearching ? null : () => controller.searchUser(),
+                padding: EdgeInsets.zero,
+                alignment: Alignment.center,
+                child: controller.isSearching
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.selectedColor,
+                        ),
+                      )
+                    : Icon(Icons.arrow_forward_rounded, color: AppColors.selectedColor, size: 20),
+              ),
             ),
           ],
         ),
@@ -204,18 +149,14 @@ class _SearchSection extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             controller.searchStatusMessage!,
-            style: getRegularStyle(fontSize: 13, color: AppColors.textColor2),
+            style: getRegularStyle(fontSize: 12, color: AppColors.textColor2),
           ),
         ],
         if (controller.searchResult != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.cardColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.textFieldBorderColor),
-            ),
+          const SizedBox(height: 10),
+          AppContainer(
+            borderRadius: 18,
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 Expanded(
@@ -230,10 +171,7 @@ class _SearchSection extends StatelessWidget {
                         controller.searchResult!.displayName ??
                             controller.searchResult!.email ??
                             '',
-                        style: getRegularStyle(
-                          fontSize: 13,
-                          color: AppColors.textColor2,
-                        ),
+                        style: getRegularStyle(fontSize: 13, color: AppColors.textColor2),
                       ),
                     ],
                   ),
@@ -241,15 +179,153 @@ class _SearchSection extends StatelessWidget {
                 if (sent || controller.searchStatusMessage == null)
                   CustomButton(
                     onTap: sent ? null : () => controller.sendRequestToSearchResult(),
-                    label: sent ? 'Sent' : 'Add friend',
+                    label: sent ? 'Sent' : 'Add',
                     color: AppColors.primaryColor,
                     isEnabled: !sent,
+                    height: 40,
                   ),
               ],
             ),
           ),
         ],
       ],
+    );
+  }
+}
+
+class _FriendsList extends StatelessWidget {
+  final MyFriendsController controller;
+
+  const _FriendsList({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.friends.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          FadeSlideIn(
+            child: AppContainer(
+              borderRadius: 22,
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                children: [
+                  Icon(Icons.people_outline_rounded, size: 40, color: AppColors.textColor2),
+                  const SizedBox(height: 12),
+                  Text('No friends yet', style: getSemiBoldStyle(color: AppColors.textColor)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Search above to find and add friends.',
+                    textAlign: TextAlign.center,
+                    style: getRegularStyle(fontSize: 13, color: AppColors.textColor2),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: controller.friends.length,
+      itemBuilder: (context, index) {
+        final friend = controller.friends[index];
+        final initial = (friend.profile?.username ?? friend.friendUid).substring(0, 1).toUpperCase();
+
+        return StaggeredFadeSlideIn(
+          index: index,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AppContainer(
+              borderRadius: 18,
+              onTap: friend.sharedNoteId.isEmpty
+                  ? null
+                  : () => FriendWidgetPrompt.onFriendTap(context, friend),
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: AppColors.containerColor,
+                    child: Text(
+                      initial,
+                      style: getBoldStyle(fontSize: 16, color: AppColors.selectedColor),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(friend.displayLabel, style: getSemiBoldStyle(fontSize: 14, color: AppColors.textColor)),
+                        Text(
+                          friend.sharedNoteId.isEmpty
+                              ? 'No shared note yet'
+                              : friend.subtitle,
+                          style: getRegularStyle(fontSize: 12, color: AppColors.textColor2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (friend.sharedNoteId.isNotEmpty)
+                    Icon(Icons.note_alt_outlined, color: AppColors.selectedColor, size: 20),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RequestsList extends StatelessWidget {
+  final MyFriendsController controller;
+
+  const _RequestsList({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.incomingRequests.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          FadeSlideIn(
+            child: AppContainer(
+              borderRadius: 22,
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                children: [
+                  Icon(Icons.mail_outline_rounded, size: 40, color: AppColors.textColor2),
+                  const SizedBox(height: 12),
+                  Text('No requests', style: getSemiBoldStyle(color: AppColors.textColor)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Friend requests will appear here.',
+                    style: getRegularStyle(fontSize: 13, color: AppColors.textColor2),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: controller.incomingRequests.length,
+      itemBuilder: (context, index) {
+        return StaggeredFadeSlideIn(
+          index: index,
+          child: _RequestTile(
+            controller: controller,
+            request: controller.incomingRequests[index],
+          ),
+        );
+      },
     );
   }
 }
@@ -269,21 +345,19 @@ class _RequestTile extends StatelessWidget {
         ? request.fromDisplayName!
         : request.fromUsername ?? request.fromUid;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AppContainer(
+        borderRadius: 18,
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              name,
-              style: getMediumStyle(color: AppColors.textColor),
-            ),
+            Text(name, style: getSemiBoldStyle(fontSize: 14, color: AppColors.textColor)),
             if (request.fromUsername != null && request.fromUsername!.isNotEmpty)
               Text(
                 '@${request.fromUsername}',
-                style: getRegularStyle(fontSize: 13, color: AppColors.textColor2),
+                style: getRegularStyle(fontSize: 12, color: AppColors.textColor2),
               ),
             const SizedBox(height: 12),
             Row(
@@ -293,6 +367,7 @@ class _RequestTile extends StatelessWidget {
                     onTap: () => controller.acceptRequest(request),
                     label: 'Accept',
                     color: AppColors.primaryColor,
+                    height: 40,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -300,8 +375,9 @@ class _RequestTile extends StatelessWidget {
                   child: CustomButton(
                     onTap: () => controller.declineRequest(request),
                     label: 'Decline',
-                    color: Colors.white,
-                    style: getMediumStyle(color: AppColors.textColorRed),
+                    color: AppColors.btnColorLight,
+                    style: getMediumStyle(color: AppColors.textColor),
+                    height: 40,
                   ),
                 ),
               ],

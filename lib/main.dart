@@ -44,16 +44,26 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           brightness: Brightness.light,
-          primarySwatch: Colors.deepPurple,
           scaffoldBackgroundColor: AppColors.bgColor,
           appBarTheme: AppBarTheme(
             backgroundColor: AppColors.bgColor,
             foregroundColor: AppColors.textColor,
             elevation: 0,
+            surfaceTintColor: Colors.transparent,
           ),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.primaryColor,
-            brightness: Brightness.light,
+          colorScheme: ColorScheme.light(
+            primary: AppColors.selectedColor,
+            onPrimary: AppColors.textColor1,
+            secondary: AppColors.containerColor,
+            surface: AppColors.bgColor,
+            onSurface: AppColors.textColor,
+          ),
+          floatingActionButtonTheme: FloatingActionButtonThemeData(
+            backgroundColor: AppColors.selectedColor,
+            foregroundColor: AppColors.textColor1,
+          ),
+          progressIndicatorTheme: ProgressIndicatorThemeData(
+            color: AppColors.selectedColor,
           ),
         ),
         home: const SplashScreen(),

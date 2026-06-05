@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:noteswidgetapp/core/constants/app_constants.dart';
 import 'package:noteswidgetapp/core/navigation/deep_link_handler.dart';
+import 'package:noteswidgetapp/core/shared/widgets/app_background.dart';
+import 'package:noteswidgetapp/core/shared/widgets/app_bottom_nav.dart';
 import 'package:noteswidgetapp/core/sync/push_sync_service.dart';
 import 'package:noteswidgetapp/core/sync/shared_note_inbound_sync.dart';
 import 'package:noteswidgetapp/core/sync/shared_note_poll_service.dart';
 import 'package:noteswidgetapp/core/sync/shared_note_realtime_service.dart';
+import 'package:noteswidgetapp/core/theme/app_colors.dart';
+import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/core/widget/home_widget_service.dart';
 import 'package:noteswidgetapp/core/widget/widget_setup_helper.dart';
-import 'package:noteswidgetapp/features/authentication/signin/repository.dart';
-import 'package:noteswidgetapp/features/authentication/signin/view.dart';
+import 'package:noteswidgetapp/features/friends/my_friends/controller.dart';
 import 'package:noteswidgetapp/features/friends/my_friends/view.dart';
-import 'package:noteswidgetapp/features/notes/my_notes/view.dart';
+import 'package:noteswidgetapp/features/home/home_tab_view.dart';
+import 'package:noteswidgetapp/features/notes/my_notes/controller.dart';
+import 'package:noteswidgetapp/features/notes/note_editor/view.dart';
+import 'package:noteswidgetapp/features/profile/profile_tab/view.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,10 +26,17 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  int _navIndex = 0;
+  late final MyFriendsController _friendsController;
+  late final MyNotesController _notesController;
+  final GlobalKey<HomeTabViewState> _homeTabKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _friendsController = MyFriendsController()..init();
+    _notesController = MyNotesController()..loadNotes();
     _bootstrap();
   }
 
@@ -66,55 +79,102 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     SharedNoteRealtimeService.instance.stop();
+    _friendsController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
+  bool get _showFab =>
+      _navIndex == 0 &&
+      (_homeTabKey.currentState?.isMineSelected ?? true) &&
+      !_notesController.selectionMode;
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
+    return ChangeNotifierProvider.value(
+      value: _friendsController,
       child: Scaffold(
+        backgroundColor: AppColors.bgColor,
+        resizeToAvoidBottomInset: true,
+        extendBody: true,
         appBar: AppBar(
-          title: const Text('Notes Widget'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'My Notes'),
-              Tab(text: 'My Friends'),
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          title: Row(
+            children: [
+              Icon(Icons.grid_view_rounded, size: 20, color: AppColors.selectedColor),
+              const SizedBox(width: 8),
+              Text('SyncNotes', style: getBoldStyle(fontSize: 18, color: AppColors.textColor)),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => WidgetSetupHelper.addWidgetToHomeScreen(context),
-              child: const Text('Add widget'),
-            ),
-            TextButton(
-              onPressed: () => _signOut(context),
-              child: const Text('Sign out'),
-            ),
-          ],
         ),
-        body: const TabBarView(
-          children: [
-            MyNotesTab(),
-            MyFriendsTab(),
-          ],
+        body: AppBackground(
+          child: IndexedStack(
+            index: _navIndex,
+            children: [
+              HomeTabView(
+                key: _homeTabKey,
+                notesController: _notesController,
+                onSegmentChanged: () => setState(() {}),
+              ),
+              MyFriendsTab(controller: _friendsController),
+              const ProfileTab(),
+            ],
+          ),
+        ),
+        floatingActionButton: ListenableBuilder(
+          listenable: _notesController,
+          builder: (context, _) {
+            if (!_showFab) return const SizedBox.shrink();
+            return FloatingActionButton(
+              onPressed: _createNote,
+              backgroundColor: AppColors.primaryColor,
+              elevation: 6,
+              shape: const CircleBorder(),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+            );
+          },
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        bottomNavigationBar: ListenableBuilder(
+          listenable: _friendsController,
+          builder: (context, _) => AppBottomNav(
+            currentIndex: _navIndex,
+            onTap: (i) => setState(() => _navIndex = i),
+            badgeIndex: 1,
+            badgeCount: _friendsController.incomingRequests.length,
+            iconOnly: true,
+            items: const [
+              AppBottomNavItem(
+                icon: Icons.grid_view_outlined,
+                activeIcon: Icons.grid_view_rounded,
+                label: 'Home',
+              ),
+              AppBottomNavItem(
+                icon: Icons.rocket_launch_outlined,
+                activeIcon: Icons.rocket_launch_rounded,
+                label: 'Shared',
+              ),
+              AppBottomNavItem(
+                icon: Icons.fingerprint_outlined,
+                activeIcon: Icons.fingerprint_rounded,
+                label: 'Profile',
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _signOut(BuildContext context) async {
-    SharedNotePollService.instance.stop();
-    await SharedNoteRealtimeService.instance.stop();
-    await PushSyncService.clearTokenOnSignOut();
-    await PushSyncService.dispose();
-    await SignInRepository().signOut();
-    if (!context.mounted) return;
-    AppConstants.showToast('Signed out');
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
+  Future<void> _createNote() async {
+    final note = await _notesController.createNote();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => NoteEditorScreen(noteId: note.noteId)),
     );
+    await _notesController.loadNotes();
   }
 }
 

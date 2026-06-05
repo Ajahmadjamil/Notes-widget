@@ -56,7 +56,7 @@ class HomeWidgetService {
     final cached = await SharedNoteWidgetCache.read();
     if (cached == null) {
       await updateDisplay(
-        title: 'Notes Widget',
+        title: 'SyncNotes',
         body: 'Sign in and add a friend to see your shared note here',
       );
       return;
@@ -80,7 +80,7 @@ class HomeWidgetService {
       final friends = await FriendsRepository().fetchFriends();
       if (friends.isEmpty || friends.first.sharedNoteId.isEmpty) {
         await updateDisplay(
-          title: 'Notes Widget',
+          title: 'SyncNotes',
           body: 'Add a friend to show your shared note on the widget',
         );
         return;
@@ -100,7 +100,7 @@ class HomeWidgetService {
     } catch (e) {
       if (kDebugMode) print('HomeWidget syncOnAppLaunch: $e');
       await updateDisplay(
-        title: 'Notes Widget',
+        title: 'SyncNotes',
         body: 'Open the app to load your shared note',
       );
     }

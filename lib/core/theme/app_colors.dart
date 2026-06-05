@@ -2,116 +2,165 @@ import 'package:noteswidgetapp/core/theme/theme_service.dart';
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Background
-  static Color get bgColor => ThemeService.instance.isDarkMode ? const Color(0xffE4E9F5) : const Color(0xffE4E9F5);
+  // Core palette
+  static const Color bg = Color(0xffffefd6);
+  static const Color container = Color(0xfff6d6a4);
+  static const Color selected = Color(0xff4a1800);
 
-  static Color get primaryColor => ThemeService.instance.isDarkMode ? const Color(0xff604BE8) : const Color(0xff604BE8);
+  // Background
+  static Color get bgColor => ThemeService.instance.isDarkMode ? bg : bg;
+
+  static Color get containerColor =>
+      ThemeService.instance.isDarkMode ? container : container;
+
+  static Color get selectedColor =>
+      ThemeService.instance.isDarkMode ? selected : selected;
+
+  static Color get primaryColor =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
   static Color get secondaryColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xffdbd7f6) : const Color(0xffdbd7f6);
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.6) : container.withValues(alpha: 0.6);
 
-  static Color get darkBgColor => ThemeService.instance.isDarkMode ? const Color(0xff302D3D) : const Color(0xff302D3D);
+  static Color get darkBgColor =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
   static Color get cardColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.5) : container.withValues(alpha: 0.45);
+
   static Color transparent = Colors.transparent;
-  //text color
+
+  // Text
   static Color get textColor =>
-      ThemeService.instance.isDarkMode ? Colors.white : const Color(0xff302D3D);
+      ThemeService.instance.isDarkMode ? selected : selected;
 
-  static Color get textColor1 => ThemeService.instance.isDarkMode ? Colors.white : Colors.white;
+  static Color get textColor1 =>
+      ThemeService.instance.isDarkMode ? Colors.white : Colors.white;
 
-  static Color get textColor2 => ThemeService.instance.isDarkMode ? const Color(0xff969DB6) : const Color(0xff969DB6);
+  static Color get textColor2 =>
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.55) : selected.withValues(alpha: 0.55);
 
-  static Color get textColorRed => ThemeService.instance.isDarkMode ? Colors.red : Colors.red;
+  static Color get textColorRed =>
+      ThemeService.instance.isDarkMode ? const Color(0xffC62828) : const Color(0xffC62828);
 
   static Color get textColorGreen =>
-      ThemeService.instance.isDarkMode ? const Color(0xff00BE4E) : const Color(0xff00BE4E);
+      ThemeService.instance.isDarkMode ? const Color(0xff2E7D32) : const Color(0xff2E7D32);
 
-  static Color get textColorPrimary => ThemeService.instance.isDarkMode ? primaryColor : primaryColor;
+  static Color get textColorPrimary =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
-  // textFields color
+  // Text fields
   static Color get textFieldBorderColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xffDCDCDC) : const Color(0xffDCDCDC);
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.15) : selected.withValues(alpha: 0.15);
 
-  static Color get textFieldBorderErrorColor => ThemeService.instance.isDarkMode ? Colors.red : Colors.red;
+  static Color get textFieldBorderErrorColor =>
+      ThemeService.instance.isDarkMode ? textColorRed : textColorRed;
 
   static Color get textFieldPlaceHolderColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xffB6B7B7) : const Color(0xffB6B7B7);
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.4) : selected.withValues(alpha: 0.4);
 
   static Color get textFieldTextColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xff302D3D) : const Color(0xff302D3D);
+      ThemeService.instance.isDarkMode ? selected : selected;
 
-  static Color get textFieldTextColor1 => ThemeService.instance.isDarkMode ? Colors.white : Colors.white;
+  static Color get textFieldTextColor1 =>
+      ThemeService.instance.isDarkMode ? Colors.white : Colors.white;
 
   static Color get textFieldHintColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xff969DB6) : const Color(0xff969DB6);
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.4) : selected.withValues(alpha: 0.4);
 
-  static Color get textFieldBorderColorSlct => ThemeService.instance.isDarkMode ? primaryColor : primaryColor;
+  static Color get textFieldBorderColorSlct =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
-  // btn Colors if selected
-  static Color get textFieldSelectedBg => ThemeService.instance.isDarkMode
-      ? const Color(0xff604BE8).withOpacity(0.2)
-      : const Color(0xff604BE8).withOpacity(0.2);
+  static Color get textFieldSelectedBg =>
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.5) : container.withValues(alpha: 0.5);
 
-  static Color get textFieldSelectedBorder => ThemeService.instance.isDarkMode ? primaryColor : primaryColor;
+  static Color get textFieldSelectedBorder =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
-  // status bar
+  // Glass
+  static Color get glassFill =>
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.28) : container.withValues(alpha: 0.28);
+
+  static Color get glassBorder =>
+      ThemeService.instance.isDarkMode ? Colors.white.withValues(alpha: 0.45) : Colors.white.withValues(alpha: 0.45);
+
+  static Color get glassFocusFill =>
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.18) : container.withValues(alpha: 0.18);
+
+  static Color get glassFocusBorder =>
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.22) : selected.withValues(alpha: 0.22);
+
+  static Color get glassHighlightFill =>
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.22) : container.withValues(alpha: 0.22);
+
+  static Color get glassHighlightBorder =>
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.2) : selected.withValues(alpha: 0.2);
+
+  static Color get glassSelectedFill =>
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.75) : selected.withValues(alpha: 0.75);
+
+  // Status bar
   static Color get statusBarActiveColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xff35363a) : const Color(0xff35363a);
+      ThemeService.instance.isDarkMode ? selected : selected;
 
   static Color get statusBarInActiveColor =>
-      ThemeService.instance.isDarkMode ? Colors.grey.withOpacity(.7) : Colors.grey.withOpacity(.7);
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.3) : selected.withValues(alpha: 0.3);
 
-  // icons
-  static Color get iconColorBlack => ThemeService.instance.isDarkMode ? Colors.black : Colors.black;
+  // Icons
+  static Color get iconColorBlack =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
-  static Color get iconColorWhite => ThemeService.instance.isDarkMode ? Colors.white : Colors.white;
+  static Color get iconColorWhite =>
+      ThemeService.instance.isDarkMode ? Colors.white : Colors.white;
 
   static Color get iconColorGrey =>
-      ThemeService.instance.isDarkMode ? const Color(0xff969DB6) : const Color(0xff969DB6);
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.45) : selected.withValues(alpha: 0.45);
 
-  static Color get borderColor => ThemeService.instance.isDarkMode ? const Color(0xffD1D3D7) : const Color(0xffD1D3D7);
+  static Color get borderColor =>
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.12) : selected.withValues(alpha: 0.12);
 
-  static Color get appBarColor => ThemeService.instance.isDarkMode ? bgColor : bgColor;
+  static Color get appBarColor =>
+      ThemeService.instance.isDarkMode ? bgColor : bgColor;
 
-  static Color get appBarTextColor => ThemeService.instance.isDarkMode ? textColor : textColor;
+  static Color get appBarTextColor =>
+      ThemeService.instance.isDarkMode ? textColor : textColor;
 
-  static Color get horizontalCardActiveBgColor => ThemeService.instance.isDarkMode
-      ? const Color(0xff604BE8).withOpacity(0.1)
-      : const Color(0xff604BE8).withOpacity(0.1);
+  static Color get horizontalCardActiveBgColor =>
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.12) : selected.withValues(alpha: 0.12);
 
   // Buttons
-  static Color get btnColorPrimary => ThemeService.instance.isDarkMode ? primaryColor : primaryColor;
+  static Color get btnColorPrimary =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
-  static Color get btnColorSecondary => ThemeService.instance.isDarkMode
-      ? const Color(0xff604BE8).withOpacity(0.2)
-      : const Color(0xff604BE8).withOpacity(0.2);
+  static Color get btnColorSecondary =>
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.6) : container.withValues(alpha: 0.6);
 
-  static Color get btnColorLight => ThemeService.instance.isDarkMode
-      ? const Color(0xff604BE8).withOpacity(0.1)
-      : const Color(0xff604BE8).withOpacity(0.1);
+  static Color get btnColorLight =>
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.4) : container.withValues(alpha: 0.4);
 
-  static Color get btnDisabledColor => ThemeService.instance.isDarkMode
-      ? const Color(0xff604BE8).withOpacity(0.1)
-      : const Color(0xff604BE8).withOpacity(0.1);
+  static Color get btnDisabledColor =>
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.25) : selected.withValues(alpha: 0.25);
 
-  static Color get btnColorRed => ThemeService.instance.isDarkMode ? const Color(0xffff0000) : const Color(0xffff0000);
+  static Color get btnColorRed =>
+      ThemeService.instance.isDarkMode ? textColorRed : textColorRed;
 
   static Color get btnDisabledLightGreyColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xffABB1C5) : const Color(0xffABB1C5);
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.3) : selected.withValues(alpha: 0.3);
 
   static Color get btnLavenderColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xffebe8f8) : const Color(0xffebe8f8);
+      ThemeService.instance.isDarkMode ? container.withValues(alpha: 0.5) : container.withValues(alpha: 0.5);
 
-  // navbar colors
-  static Color get activeNavBarIconColor => ThemeService.instance.isDarkMode ? primaryColor : primaryColor;
+  // Navbar
+  static Color get activeNavBarIconColor =>
+      ThemeService.instance.isDarkMode ? selected : selected;
 
   static Color get inActiveNavBarIconColor =>
-      ThemeService.instance.isDarkMode ? const Color(0xff969DB6) : const Color(0xff969DB6);
+      ThemeService.instance.isDarkMode ? selected.withValues(alpha: 0.4) : selected.withValues(alpha: 0.4);
 
   // Shimmer
-  static Color get shimmerBaseColor => ThemeService.instance.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!;
+  static Color get shimmerBaseColor =>
+      ThemeService.instance.isDarkMode ? container : container.withValues(alpha: 0.5);
 
-  static Color get shimmerHighlightColor => ThemeService.instance.isDarkMode ? Colors.grey[500]! : Colors.grey[100]!;
+  static Color get shimmerHighlightColor =>
+      ThemeService.instance.isDarkMode ? bg : Colors.white.withValues(alpha: 0.6);
 }
