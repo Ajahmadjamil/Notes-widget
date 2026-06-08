@@ -5,14 +5,16 @@ import 'package:noteswidgetapp/core/theme/app_colors.dart';
 class HandwritingCanvas extends StatefulWidget {
   final DrawingData initialData;
   final ValueChanged<DrawingData> onChanged;
-  final Color strokeColor;
+  final Color? strokeColor;
 
   const HandwritingCanvas({
     super.key,
     required this.initialData,
     required this.onChanged,
-    this.strokeColor = AppColors.selected,
+    this.strokeColor,
   });
+
+  Color get effectiveStrokeColor => strokeColor ?? AppColors.selected;
 
   @override
   State<HandwritingCanvas> createState() => HandwritingCanvasState();
@@ -67,7 +69,7 @@ class HandwritingCanvasState extends State<HandwritingCanvas> {
           onPanStart: (d) {
             setState(() {
               _activeStroke = DrawingStroke(
-                color: widget.strokeColor,
+                color: widget.effectiveStrokeColor,
                 width: 3,
                 points: [DrawingPoint(d.localPosition.dx, d.localPosition.dy)],
               );

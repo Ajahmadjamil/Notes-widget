@@ -9,6 +9,8 @@ import 'package:noteswidgetapp/core/sync/shared_note_poll_service.dart';
 import 'package:noteswidgetapp/core/sync/shared_note_realtime_service.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
+import 'package:noteswidgetapp/core/theme/theme_picker_sheet.dart';
+import 'package:noteswidgetapp/core/theme/theme_provider.dart';
 import 'package:noteswidgetapp/core/widget/widget_setup_helper.dart';
 import 'package:noteswidgetapp/features/authentication/signin/repository.dart';
 import 'package:noteswidgetapp/features/authentication/signin/view.dart';
@@ -90,6 +92,13 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
           title: 'Home screen widget',
           subtitle: 'Add or manage your note widget',
           onTap: () => WidgetSetupHelper.addWidgetToHomeScreen(context),
+        ),
+        const SizedBox(height: 8),
+        _ActionTile(
+          icon: Icons.palette_outlined,
+          title: 'Change App Theme',
+          subtitle: AppThemeProvider.instance.currentThemeName,
+          onTap: () => ThemePickerSheet.show(context),
         ),
         const SizedBox(height: 8),
         _ActionTile(

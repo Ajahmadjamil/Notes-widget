@@ -2,9 +2,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:noteswidgetapp/core/navigation/deep_link_handler.dart';
 import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
-import 'package:noteswidgetapp/core/theme/app_colors.dart';
+import 'package:noteswidgetapp/core/theme/app_theme.dart';
+import 'package:noteswidgetapp/core/theme/theme_provider.dart';
 import 'package:noteswidgetapp/features/splash/controller.dart';
 import 'package:noteswidgetapp/features/splash/view.dart';
 import 'package:noteswidgetapp/firebase_messaging_background.dart';
@@ -13,6 +15,8 @@ import 'package:provider/provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await AppThemeProvider.instance.initialize();
 
   await AppSupabase.initialize();
 
@@ -24,7 +28,7 @@ Future<void> main() async {
 
   await DeepLinkHandler.captureWidgetLaunchUri();
 
-  runApp(const MyApp());
+  runApp(Phoenix(child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -41,31 +45,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Notes Widget',
-        theme: ThemeData(
-          useMaterial3: true,
-          brightness: Brightness.light,
-          scaffoldBackgroundColor: AppColors.bgColor,
-          appBarTheme: AppBarTheme(
-            backgroundColor: AppColors.bgColor,
-            foregroundColor: AppColors.textColor,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-          ),
-          colorScheme: ColorScheme.light(
-            primary: AppColors.selectedColor,
-            onPrimary: AppColors.textColor1,
-            secondary: AppColors.containerColor,
-            surface: AppColors.bgColor,
-            onSurface: AppColors.textColor,
-          ),
-          floatingActionButtonTheme: FloatingActionButtonThemeData(
-            backgroundColor: AppColors.selectedColor,
-            foregroundColor: AppColors.textColor1,
-          ),
-          progressIndicatorTheme: ProgressIndicatorThemeData(
-            color: AppColors.selectedColor,
-          ),
-        ),
+        theme: buildAppTheme(AppThemeProvider.instance.palette),
         home: const SplashScreen(),
       ),
     );

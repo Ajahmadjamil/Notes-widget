@@ -6,6 +6,7 @@ import 'package:noteswidgetapp/core/notes/drawing_data.dart';
 import 'package:noteswidgetapp/core/notes/note_type.dart';
 import 'package:noteswidgetapp/core/widget/active_widget_note_service.dart';
 import 'package:noteswidgetapp/core/widget/widget_drawing_renderer.dart';
+import 'package:noteswidgetapp/core/widget/widget_theme_sync.dart';
 import 'package:noteswidgetapp/core/widget/shared_note_widget_cache.dart';
 import 'package:noteswidgetapp/features/friends/repository/friends_repository.dart';
 import 'package:noteswidgetapp/features/shared_note/repository/shared_note_repository.dart';
@@ -70,6 +71,8 @@ class HomeWidgetService {
       await HomeWidget.saveWidgetData<String>(drawingImageKey, '');
       await HomeWidget.saveWidgetData<String>(bodyKey, displayBody);
     }
+
+    await WidgetThemeSync.saveColors();
 
     if (Platform.isAndroid) {
       await HomeWidget.updateWidget(

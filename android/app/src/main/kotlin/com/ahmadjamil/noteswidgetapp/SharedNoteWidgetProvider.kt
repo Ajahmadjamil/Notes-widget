@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.net.Uri
 import android.util.Base64
 import android.view.View
@@ -29,8 +30,20 @@ class SharedNoteWidgetProvider : HomeWidgetProvider() {
         val drawingBase64 = widgetData.getString("shared_note_drawing_base64", null)
         val drawingImagePath = widgetData.getString("shared_note_drawing_image", null)
 
+        val bgColor = themeColor(widgetData, "widget_bg_color", Color.parseColor("#FFF8F0"))
+        val surfaceColor = themeColor(widgetData, "widget_surface_color", Color.parseColor("#F5EDE0"))
+        val textPrimary = themeColor(widgetData, "widget_text_primary_color", Color.parseColor("#3E2723"))
+        val textSecondary = themeColor(widgetData, "widget_text_secondary_color", Color.parseColor("#6D4C41"))
+
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, R.layout.shared_note_widget_layout).apply {
+                setInt(R.id.widget_container, "setBackgroundColor", bgColor)
+                setInt(R.id.widget_logo, "setBackgroundColor", surfaceColor)
+                setInt(R.id.widget_friend_label, "setBackgroundColor", surfaceColor)
+                setTextColor(R.id.widget_title, textPrimary)
+                setTextColor(R.id.widget_body, textSecondary)
+                setTextColor(R.id.widget_friend_label, textSecondary)
+
                 if (noteType == "drawing") {
                     setViewVisibility(R.id.widget_title, View.GONE)
                     setViewVisibility(R.id.widget_body, View.GONE)
@@ -82,6 +95,12 @@ class SharedNoteWidgetProvider : HomeWidgetProvider() {
             appWidgetManager.updateAppWidget(widgetId, views)
         }
     }
+
+    private fun themeColor(
+        prefs: SharedPreferences,
+        key: String,
+        fallback: Int,
+    ): Int = prefs.getString(key, null)?.toIntOrNull() ?: fallback
 
     private fun loadDrawingBitmap(base64: String?, path: String?): android.graphics.Bitmap? {
         if (!base64.isNullOrEmpty()) {

@@ -1,38 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:noteswidgetapp/core/theme/app_theme_palette.dart';
+import 'package:noteswidgetapp/core/theme/theme_provider.dart';
 
+/// Backwards-compatible accessor used by [AppColors] across the app.
 class ThemeService extends ChangeNotifier {
-  ThemeService();
-  static final ThemeService instance = ThemeService._internal();
-  ThemeService._internal();
-  ThemeMode themeMode = ThemeMode.light;
+  ThemeService._();
+  static final ThemeService instance = ThemeService._();
+
+  AppThemeProvider get _provider => AppThemeProvider.instance;
+
+  ThemeMode get themeMode =>
+      _provider.isDarkMode ? ThemeMode.dark : ThemeMode.light;
+
   ThemeMode get currentTheme => themeMode;
 
-  bool get isDarkMode {
-    if (themeMode == ThemeMode.system) {
-      final brightness =
-          WidgetsBinding.instance.platformDispatcher.platformBrightness;
-      return brightness == Brightness.dark;
-    }
-    return themeMode == ThemeMode.dark;
-  }
+  bool get isDarkMode => _provider.isDarkMode;
 
-  void toggleTheme() {
-    switch (themeMode) {
-      case ThemeMode.light:
-        themeMode = ThemeMode.dark;
-        break;
-      case ThemeMode.dark:
-        themeMode = ThemeMode.system;
-        break;
-      case ThemeMode.system:
-        themeMode = ThemeMode.light;
-        break;
-    }
-    notifyListeners();
-  }
+  AppThemeId get themeId => _provider.themeId;
 
-  void setTheme(ThemeMode mode) {
-    themeMode = mode;
-    notifyListeners();
-  }
+  AppThemePalette get palette => _provider.palette;
 }

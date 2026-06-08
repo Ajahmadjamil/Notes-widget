@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/notes/drawing_data.dart';
+import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/widget/widget_drawing_dimensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -47,7 +48,7 @@ class WidgetDrawingRenderer {
     final canvas = Canvas(recorder);
     canvas.drawRect(
       Rect.fromLTWH(0, 0, pixels.width.toDouble(), pixels.height.toDouble()),
-      Paint()..color = const Color(0xFFFFEFD6),
+      Paint()..color = AppColors.bgColor,
     );
 
     for (final stroke in data.strokes) {

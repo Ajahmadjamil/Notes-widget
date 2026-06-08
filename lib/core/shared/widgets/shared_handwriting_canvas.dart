@@ -8,7 +8,7 @@ class SharedHandwritingCanvas extends StatefulWidget {
   final double canvasWidth;
   final double canvasHeight;
   final ValueChanged<DrawingData> onChanged;
-  final Color strokeColor;
+  final Color? strokeColor;
 
   const SharedHandwritingCanvas({
     super.key,
@@ -16,8 +16,10 @@ class SharedHandwritingCanvas extends StatefulWidget {
     required this.canvasWidth,
     required this.canvasHeight,
     required this.onChanged,
-    this.strokeColor = AppColors.selected,
+    this.strokeColor,
   });
+
+  Color get effectiveStrokeColor => strokeColor ?? AppColors.selected;
 
   @override
   State<SharedHandwritingCanvas> createState() => SharedHandwritingCanvasState();
@@ -98,7 +100,7 @@ class SharedHandwritingCanvasState extends State<SharedHandwritingCanvas> {
       final pt = _toCanvasSpace(event.localPosition);
       setState(() {
         _activeStroke = DrawingStroke(
-          color: widget.strokeColor,
+          color: widget.effectiveStrokeColor,
           width: 3 / _scale,
           points: [DrawingPoint(pt.dx, pt.dy)],
         );
