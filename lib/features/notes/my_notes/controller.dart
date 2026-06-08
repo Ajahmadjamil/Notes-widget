@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
+import 'package:noteswidgetapp/core/notes/note_type.dart';
 import 'package:noteswidgetapp/features/notes/model/note.dart';
 import 'package:noteswidgetapp/features/notes/repository/notes_repository.dart';
 
@@ -35,8 +36,8 @@ class MyNotesController with ChangeNotifier {
     }
   }
 
-  Future<Note> createNote() async {
-    return _repo.createNote();
+  Future<Note> createNote({NoteType noteType = NoteType.text}) async {
+    return _repo.createNote(noteType: noteType);
   }
 
   Future<void> deleteNote(Note note) async {

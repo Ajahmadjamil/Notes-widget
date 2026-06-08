@@ -6,8 +6,9 @@ import 'package:noteswidgetapp/core/shared/widgets/segment_toggle.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/features/home/shared_notes_panel.dart';
+import 'package:noteswidgetapp/features/notes/model/note.dart';
 import 'package:noteswidgetapp/features/notes/my_notes/controller.dart';
-import 'package:noteswidgetapp/features/notes/note_editor/view.dart';
+import 'package:noteswidgetapp/core/navigation/note_editor_launcher.dart';
 import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:noteswidgetapp/features/profile/model/user_profile.dart';
 import 'package:noteswidgetapp/features/profile/repository/user_profile_repository.dart';
@@ -250,9 +251,9 @@ class _MinePanel extends StatelessWidget {
     MyNotesController ctrl,
     String id,
   ) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => NoteEditorScreen(noteId: id)));
+    final Note? note = ctrl.notes.where((n) => n.noteId == id).firstOrNull;
+    if (note == null) return;
+    await NoteEditorLauncher.openPersonal(context, note);
     await ctrl.loadNotes();
   }
 

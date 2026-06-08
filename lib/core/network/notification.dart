@@ -155,10 +155,7 @@ class PushNotificationService {
     }
 
     if (message.data['type'] == _widgetSyncType) {
-      await WidgetPushHandler.applyFromData(
-        message.data,
-        usePayloadOnly: isBackground,
-      );
+      await WidgetPushHandler.applyFromData(message.data);
     }
   }
 

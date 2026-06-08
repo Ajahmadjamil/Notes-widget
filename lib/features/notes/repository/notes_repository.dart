@@ -2,6 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:noteswidgetapp/features/notes/data/notes_supabase_data_source.dart';
 import 'package:noteswidgetapp/features/notes/data/notes_local_db.dart';
+import 'package:noteswidgetapp/core/notes/note_type.dart';
 import 'package:noteswidgetapp/features/notes/model/note.dart';
 import 'package:uuid/uuid.dart';
 
@@ -37,7 +38,9 @@ class NotesRepository {
       if (pendingIds.contains(remote.noteId)) continue;
       final existing = await _local.getNote(remote.noteId);
       await _local.upsert(
-        remote.copyWith(isPinned: existing?.isPinned ?? false),
+        remote.copyWith(
+          isPinned: existing?.isPinned ?? false,
+        ),
       );
     }
   }
@@ -69,17 +72,23 @@ class NotesRepository {
 
   Future<Note?> getNote(String noteId) => _local.getNote(noteId);
 
-  Future<Note> createNote({String title = '', String body = ''}) async {
+  Future<Note> createNote({
+    String title = '',
+    String body = '',
+    NoteType noteType = NoteType.text,
+  }) async {
     final uid = _uid!;
     final now = DateTime.now().millisecondsSinceEpoch;
+    final defaultTitle = noteType == NoteType.drawing ? 'Handwritten note' : 'Untitled';
     final note = Note(
       noteId: _uuid.v4(),
       ownerId: uid,
-      title: title.trim().isEmpty ? 'Untitled' : title.trim(),
+      title: title.trim().isEmpty ? defaultTitle : title.trim(),
       body: body,
       createdAt: now,
       updatedAt: now,
       pendingSync: 'create',
+      noteType: noteType,
     );
 
     await _local.upsert(note);
@@ -100,6 +109,29 @@ class NotesRepository {
     final updated = note.copyWith(
       title: title.trim().isEmpty ? 'Untitled' : title.trim(),
       body: body,
+      updatedAt: now,
+      pendingSync: pending,
+    );
+
+    await _local.upsert(updated);
+
+    if (await isOnline) {
+      await _remote.saveNote(uid, updated);
+      await _local.upsert(updated.copyWith(clearPendingSync: true));
+    }
+
+    return updated;
+  }
+
+  Future<Note> updateDrawing(Note note, {required String drawingData, String? title}) async {
+    final uid = _uid!;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final pending = note.pendingSync == 'create' ? 'create' : 'update';
+
+    final updated = note.copyWith(
+      title: title?.trim().isNotEmpty == true ? title!.trim() : note.title,
+      drawingData: drawingData,
+      noteType: NoteType.drawing,
       updatedAt: now,
       pendingSync: pending,
     );

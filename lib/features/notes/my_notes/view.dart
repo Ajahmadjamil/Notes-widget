@@ -5,7 +5,8 @@ import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/features/notes/model/note.dart';
 import 'package:noteswidgetapp/features/notes/my_notes/controller.dart';
-import 'package:noteswidgetapp/features/notes/note_editor/view.dart';
+import 'package:noteswidgetapp/core/navigation/note_editor_launcher.dart';
+import 'package:noteswidgetapp/core/shared/widgets/note_type_picker_sheet.dart';
 import 'package:provider/provider.dart';
 
 /// Standalone notes tab — used only if navigated to directly.
@@ -118,18 +119,18 @@ class _MyNotesTabState extends State<MyNotesTab>
   }
 
   Future<void> _openNewNote(BuildContext context, MyNotesController controller) async {
-    final note = await controller.createNote();
+    final type = await NoteTypePickerSheet.show(context);
+    if (!context.mounted || type == null) return;
+    final note = await controller.createNote(noteType: type);
     if (!context.mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NoteEditorScreen(noteId: note.noteId)),
-    );
+    await NoteEditorLauncher.openPersonal(context, note);
     await controller.loadNotes();
   }
 
   Future<void> _openNote(BuildContext context, MyNotesController controller, String noteId) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NoteEditorScreen(noteId: noteId)),
-    );
+    final note = controller.notes.where((n) => n.noteId == noteId).firstOrNull;
+    if (note == null) return;
+    await NoteEditorLauncher.openPersonal(context, note);
     await controller.loadNotes();
   }
 

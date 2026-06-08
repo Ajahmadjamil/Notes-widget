@@ -129,6 +129,8 @@ Dependencies: remove `firebase_core`, `firebase_auth`, `firebase_database`; add 
 
 **Widget/deep links:** `sharedNoteId` becomes the UUID from `shared_notes.id` (not the old pair string).
 
+**Handwriting notes:** Apply `supabase/migrations/20250605120000_add_note_drawing.sql` to add `note_type` (`text` | `drawing`) and `drawing_data` (JSON strokes) on both `personal_notes` and `shared_notes`.
+
 **Data migration:** Firebase Auth UIDs ≠ Supabase UUIDs. Easiest path: new sign-ups and re-friend. Importing old RTDB rows requires a one-off script with UID mapping.
 
 ## 9. Cursor migration prompt

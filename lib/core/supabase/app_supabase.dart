@@ -1,5 +1,6 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:noteswidgetapp/core/supabase/google_auth_config.dart';
+import 'package:noteswidgetapp/core/supabase/schema_capabilities.dart';
 import 'package:noteswidgetapp/core/supabase/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -35,6 +36,8 @@ class AppSupabase {
     await GoogleSignIn.instance.initialize(
       serverClientId: GoogleAuthConfig.webClientId,
     );
+
+    await SchemaCapabilities.ensureProbed(Supabase.instance.client);
 
     _initialized = true;
   }

@@ -1,3 +1,5 @@
+import 'package:noteswidgetapp/core/notes/note_type.dart';
+
 class SharedNote {
   final String sharedNoteId;
   final String friendshipId;
@@ -8,6 +10,8 @@ class SharedNote {
   final int createdAt;
   final int updatedAt;
   final String updatedBy;
+  final NoteType noteType;
+  final String drawingData;
 
   const SharedNote({
     required this.sharedNoteId,
@@ -19,7 +23,40 @@ class SharedNote {
     required this.createdAt,
     required this.updatedAt,
     required this.updatedBy,
+    this.noteType = NoteType.text,
+    this.drawingData = '',
   });
+
+  bool get isDrawing => noteType == NoteType.drawing;
+
+  bool get isUnset =>
+      noteType == NoteType.text &&
+      title == 'Shared note' &&
+      body.isEmpty &&
+      drawingData.isEmpty;
+
+  SharedNote copyWith({
+    String? title,
+    String? body,
+    int? updatedAt,
+    String? updatedBy,
+    NoteType? noteType,
+    String? drawingData,
+  }) {
+    return SharedNote(
+      sharedNoteId: sharedNoteId,
+      friendshipId: friendshipId,
+      user1: user1,
+      user2: user2,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      updatedBy: updatedBy ?? this.updatedBy,
+      noteType: noteType ?? this.noteType,
+      drawingData: drawingData ?? this.drawingData,
+    );
+  }
 
   factory SharedNote.fromRow(Map<String, dynamic> row) {
     final friendship = row['friendships'];
@@ -43,6 +80,8 @@ class SharedNote {
       createdAt: _timestampMillis(row['created_at']) ?? 0,
       updatedAt: _timestampMillis(row['updated_at']) ?? 0,
       updatedBy: row['updated_by'] as String? ?? '',
+      noteType: NoteType.fromString(row['note_type'] as String?),
+      drawingData: row['drawing_data'] as String? ?? '',
     );
   }
 

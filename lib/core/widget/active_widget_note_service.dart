@@ -30,13 +30,7 @@ class ActiveWidgetNoteService {
 
     final note = await SharedNoteRepository().fetchOnce(sharedNoteId);
     if (note != null) {
-      await SharedNoteWidgetCache.update(
-        sharedNoteId: note.sharedNoteId,
-        title: note.title,
-        body: note.body,
-        updatedAt: note.updatedAt,
-        friendLabel: friendLabel,
-      );
+      await SharedNoteWidgetCache.updateFromNote(note, friendLabel: friendLabel);
     } else {
       await HomeWidgetService.updateDisplay(
         title: 'Shared note',

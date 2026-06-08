@@ -18,7 +18,11 @@ class SharedNoteInboundSync {
     bool force = false,
   }) async {
     final prev = _lastAppliedByNoteId[note.sharedNoteId] ?? 0;
-    if (!force && note.updatedAt > 0 && note.updatedAt <= prev) {
+    final drawingChanged = note.isDrawing && note.drawingData.isNotEmpty;
+    if (!force &&
+        !drawingChanged &&
+        note.updatedAt > 0 &&
+        note.updatedAt <= prev) {
       return;
     }
     _lastAppliedByNoteId[note.sharedNoteId] = note.updatedAt;
@@ -36,13 +40,7 @@ class SharedNoteInboundSync {
       print('InboundSync: widget + bus for ${note.sharedNoteId}');
     }
 
-    await SharedNoteWidgetCache.update(
-      sharedNoteId: note.sharedNoteId,
-      title: note.title,
-      body: note.body,
-      updatedAt: note.updatedAt,
-      friendLabel: friendLabel,
-    );
+    await SharedNoteWidgetCache.updateFromNote(note, friendLabel: friendLabel);
   }
 
   /// Pull latest active widget note from Supabase (resume / poll fallback).

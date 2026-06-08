@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:noteswidgetapp/core/notes/drawing_data.dart';
+import 'package:noteswidgetapp/core/shared/widgets/handwriting_canvas.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/features/notes/model/note.dart';
@@ -128,7 +130,16 @@ class NoteGridCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (note.body.isNotEmpty) ...[
+                if (note.isDrawing) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: DrawingPreview(
+                      data: DrawingData.decode(note.drawingData),
+                      height: 72,
+                    ),
+                  ),
+                ] else if (note.body.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
                     note.body,

@@ -7,7 +7,7 @@ class NotesLocalDb {
   static final NotesLocalDb instance = NotesLocalDb._();
 
   static const _dbName = 'noteswidgetapp_notes.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 4;
   static const tableNotes = 'notes';
 
   Database? _database;
@@ -15,6 +15,37 @@ class NotesLocalDb {
   Future<Database> get database async {
     _database ??= await _open();
     return _database!;
+  }
+
+  /// SQLite on some Android builds rejects NOT NULL on ALTER TABLE ADD COLUMN.
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String column,
+    String alterSql,
+  ) async {
+    final info = await db.rawQuery('PRAGMA table_info($tableNotes)');
+    final exists = info.any((row) => row['name'] == column);
+    if (!exists) {
+      await db.execute(alterSql);
+    }
+  }
+
+  Future<void> _ensureLegacyColumns(Database db) async {
+    await _addColumnIfMissing(
+      db,
+      'is_pinned',
+      'ALTER TABLE $tableNotes ADD COLUMN is_pinned INTEGER DEFAULT 0',
+    );
+    await _addColumnIfMissing(
+      db,
+      'note_type',
+      "ALTER TABLE $tableNotes ADD COLUMN note_type TEXT DEFAULT 'text'",
+    );
+    await _addColumnIfMissing(
+      db,
+      'drawing_data',
+      "ALTER TABLE $tableNotes ADD COLUMN drawing_data TEXT DEFAULT ''",
+    );
   }
 
   Future<Database> _open() async {
@@ -34,16 +65,14 @@ class NotesLocalDb {
             updated_at INTEGER NOT NULL,
             pending_sync TEXT,
             is_deleted INTEGER NOT NULL DEFAULT 0,
-            is_pinned INTEGER NOT NULL DEFAULT 0
+            is_pinned INTEGER NOT NULL DEFAULT 0,
+            note_type TEXT NOT NULL DEFAULT 'text',
+            drawing_data TEXT NOT NULL DEFAULT ''
           )
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute(
-            'ALTER TABLE $tableNotes ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0',
-          );
-        }
+        await _ensureLegacyColumns(db);
       },
     );
   }

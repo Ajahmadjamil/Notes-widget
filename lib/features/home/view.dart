@@ -14,7 +14,11 @@ import 'package:noteswidgetapp/features/friends/my_friends/controller.dart';
 import 'package:noteswidgetapp/features/friends/my_friends/view.dart';
 import 'package:noteswidgetapp/features/home/home_tab_view.dart';
 import 'package:noteswidgetapp/features/notes/my_notes/controller.dart';
-import 'package:noteswidgetapp/features/notes/note_editor/view.dart';
+import 'package:noteswidgetapp/core/constants/app_constants.dart';
+import 'package:noteswidgetapp/core/navigation/note_editor_launcher.dart';
+import 'package:noteswidgetapp/core/notes/note_type.dart';
+import 'package:noteswidgetapp/core/supabase/schema_capabilities.dart';
+import 'package:noteswidgetapp/core/shared/widgets/note_type_picker_sheet.dart';
 import 'package:noteswidgetapp/features/profile/profile_tab/view.dart';
 import 'package:provider/provider.dart';
 
@@ -169,11 +173,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _createNote() async {
-    final note = await _notesController.createNote();
+    final type = await NoteTypePickerSheet.show(context);
+    if (!mounted || type == null) return;
+
+    if (type == NoteType.drawing && !SchemaCapabilities.drawingNotesSupported) {
+      AppConstants.showToast(
+        'Run RUN_IN_SUPABASE_SQL_EDITOR.sql in Supabase to enable handwriting sync',
+      );
+    }
+
+    final note = await _notesController.createNote(noteType: type);
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NoteEditorScreen(noteId: note.noteId)),
-    );
+    await NoteEditorLauncher.openPersonal(context, note);
     await _notesController.loadNotes();
   }
 }

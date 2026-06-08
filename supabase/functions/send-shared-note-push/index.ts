@@ -14,6 +14,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const WIDGET_SYNC_TYPE = "widget_sync";
+const MAX_FCM_DRAWING_CHARS = 3500;
+
 type WebhookPayload = {
   type: "UPDATE";
   table: string;
@@ -27,6 +29,8 @@ type SharedNoteRow = {
   friendship_id: string;
   title: string;
   body: string;
+  note_type?: string | null;
+  drawing_data?: string | null;
   updated_by: string | null;
   updated_at: string;
 };
@@ -89,29 +93,60 @@ Deno.serve(async (req) => {
 
   const friendLabel =
     editor?.username ?? editor?.display_name ?? "Friend";
-  const preview = (note.body ?? "").trim();
-  const notificationBody = preview
-    ? preview.length > 80
-      ? `${preview.substring(0, 80)}…`
-      : preview
-    : "Your friend updated the shared note";
+
+  const noteType = note.note_type === "drawing" ? "drawing" : "text";
+  const drawingData = note.drawing_data ?? "";
+
+  let notificationBody: string;
+  if (noteType === "drawing") {
+    const noteTitle = (note.title ?? "").trim();
+    notificationBody =
+      noteTitle && noteTitle !== "Shared note"
+        ? `${noteTitle} (handwriting updated)`
+        : "Handwritten note updated";
+  } else {
+    const preview = (note.body ?? "").trim();
+    if (preview) {
+      notificationBody =
+        preview.length > 80 ? `${preview.substring(0, 80)}…` : preview;
+    } else {
+      const noteTitle = (note.title ?? "").trim();
+      notificationBody =
+        noteTitle && noteTitle !== "Shared note"
+          ? noteTitle
+          : "Your friend updated the shared note";
+    }
+  }
+
   const notificationTitle = `${friendLabel} updated your shared note`;
   const updatedAt = Date.parse(note.updated_at) || Date.now();
 
-  // sharedNoteId in payload = UUID string (widget cache key after Flutter migration)
-  const dataPayload = {
+  const widgetBody =
+    noteType === "drawing"
+      ? ""
+      : (note.body ?? "").trim();
+
+  const dataPayload: Record<string, string> = {
     type: WIDGET_SYNC_TYPE,
     sharedNoteId: note.id,
     title: note.title ?? "Shared note",
-    body: note.body ?? "",
+    body: widgetBody,
+    noteType,
     updatedAt: String(updatedAt),
     friendLabel,
     notificationTitle,
     notificationBody,
   };
 
+  if (
+    noteType === "drawing" &&
+    drawingData.length > 0 &&
+    drawingData.length <= MAX_FCM_DRAWING_CHARS
+  ) {
+    dataPayload.drawingData = drawingData;
+  }
+
   try {
-    // Data-only FCM: silent widget sync (no system notification tray).
     await sendFcm(token, dataPayload);
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (e) {

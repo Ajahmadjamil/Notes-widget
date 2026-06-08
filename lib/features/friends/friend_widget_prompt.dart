@@ -2,20 +2,27 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
+import 'package:noteswidgetapp/core/navigation/note_editor_launcher.dart';
+import 'package:noteswidgetapp/core/notes/note_type.dart';
 import 'package:noteswidgetapp/core/shared/animations/app_animations.dart';
 import 'package:noteswidgetapp/core/shared/widgets/app_container.dart';
 import 'package:noteswidgetapp/core/shared/widgets/custom_button.dart';
+import 'package:noteswidgetapp/core/shared/widgets/note_type_picker_sheet.dart';
+import 'package:noteswidgetapp/core/supabase/schema_capabilities.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/core/widget/active_widget_note_service.dart';
+import 'package:noteswidgetapp/core/widget/shared_note_widget_cache.dart';
 import 'package:noteswidgetapp/core/widget/widget_setup_helper.dart';
 import 'package:noteswidgetapp/features/friends/model/friend.dart';
-import 'package:noteswidgetapp/features/shared_note/editor/view.dart';
+import 'package:noteswidgetapp/features/shared_note/repository/shared_note_repository.dart';
 
-enum FriendTapChoice { showOnWidget, openNoteOnly }
+enum FriendTapChoice { showOnWidget, openNoteOnly, changeNoteType }
 
 class FriendWidgetPrompt {
   FriendWidgetPrompt._();
+
+  static final _repo = SharedNoteRepository();
 
   static Future<void> onFriendTap(BuildContext context, Friend friend) async {
     if (friend.sharedNoteId.isEmpty) {
@@ -33,6 +40,16 @@ class FriendWidgetPrompt {
 
     if (!context.mounted || choice == null) return;
 
+    if (choice == FriendTapChoice.changeNoteType) {
+      await _changeNoteType(context, friend);
+      return;
+    }
+
+    if (choice == FriendTapChoice.showOnWidget || choice == FriendTapChoice.openNoteOnly) {
+      final ready = await _ensureInitialNoteType(context, friend);
+      if (!ready || !context.mounted) return;
+    }
+
     if (choice == FriendTapChoice.showOnWidget) {
       await ActiveWidgetNoteService.setActiveFriendNote(
         sharedNoteId: friend.sharedNoteId,
@@ -45,16 +62,129 @@ class FriendWidgetPrompt {
 
     if (!context.mounted) return;
     if (choice == FriendTapChoice.showOnWidget || choice == FriendTapChoice.openNoteOnly) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SharedNoteEditorScreen(
-            key: ValueKey('note_${friend.friendUid}_${friend.sharedNoteId}'),
-            sharedNoteId: friend.sharedNoteId,
-            friendUid: friend.friendUid,
-            friendLabel: friend.displayLabel,
-          ),
-        ),
+      await NoteEditorLauncher.openShared(
+        context: context,
+        sharedNoteId: friend.sharedNoteId,
+        friendUid: friend.friendUid,
+        friendLabel: friend.displayLabel,
       );
+    }
+  }
+
+  static Future<bool> _ensureInitialNoteType(
+    BuildContext context,
+    Friend friend,
+  ) async {
+    final note = await _repo.resolveAndFetch(
+      preferredId: friend.sharedNoteId,
+      friendUid: friend.friendUid,
+    );
+    if (note == null) {
+      AppConstants.showToast('Could not load shared note');
+      return false;
+    }
+    if (!note.isUnset) return true;
+
+    if (!context.mounted) return false;
+    final type = await NoteTypePickerSheet.show(
+      context,
+      title: 'Shared note type',
+      subtitle: 'Choose text or handwriting for this friend\'s note',
+    );
+    if (type == null) return false;
+
+    if (type == NoteType.drawing && !SchemaCapabilities.drawingNotesSupported) {
+      AppConstants.showToast(
+        'Run RUN_IN_SUPABASE_SQL_EDITOR.sql in Supabase to enable handwriting',
+      );
+      return true;
+    }
+
+    if (type == NoteType.drawing) {
+      await _repo.setNoteType(
+        sharedNoteId: note.sharedNoteId,
+        noteType: NoteType.drawing,
+      );
+    }
+    return true;
+  }
+
+  static Future<void> _changeNoteType(BuildContext context, Friend friend) async {
+    final note = await _repo.fetchOnce(friend.sharedNoteId);
+    if (note == null) {
+      AppConstants.showToast('Could not load shared note');
+      return;
+    }
+
+    final newType =
+        note.noteType == NoteType.drawing ? NoteType.text : NoteType.drawing;
+
+    if (newType == NoteType.drawing && !SchemaCapabilities.drawingNotesSupported) {
+      AppConstants.showToast(
+        'Run RUN_IN_SUPABASE_SQL_EDITOR.sql in Supabase to enable handwriting',
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    final hasContent = note.noteType == NoteType.text
+        ? note.body.trim().isNotEmpty
+        : note.drawingData.trim().isNotEmpty;
+    final targetLabel = newType == NoteType.drawing ? 'handwriting' : 'text';
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgColor,
+        title: Text(
+          'Switch to $targetLabel?',
+          style: getSemiBoldStyle(color: AppColors.textColor),
+        ),
+        content: Text(
+          hasContent
+              ? 'Current content will be cleared when switching to $targetLabel.'
+              : 'This shared note will open as $targetLabel.',
+          style: getRegularStyle(color: AppColors.textColor2),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Switch')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    try {
+      final updated = await _repo.changeNoteType(
+        sharedNoteId: note.sharedNoteId,
+        newType: newType,
+      );
+      if (updated == null) {
+        AppConstants.showToast('Could not change note type');
+        return;
+      }
+
+      if (await ActiveWidgetNoteService.shouldSyncToWidget(note.sharedNoteId)) {
+        await SharedNoteWidgetCache.updateFromNote(
+          updated,
+          friendLabel: friend.displayLabel,
+        );
+      }
+
+      AppConstants.showToast(
+        newType == NoteType.drawing ? 'Switched to handwriting' : 'Switched to text',
+      );
+
+      if (!context.mounted) return;
+      await NoteEditorLauncher.openShared(
+        context: context,
+        sharedNoteId: friend.sharedNoteId,
+        friendUid: friend.friendUid,
+        friendLabel: friend.displayLabel,
+      );
+    } catch (_) {
+      AppConstants.showToast('Could not change note type');
     }
   }
 }
@@ -147,6 +277,13 @@ class _FriendActionSheet extends StatelessWidget {
                     subtitle: 'Pin their note to your home screen',
                     isPrimary: true,
                     onTap: () => Navigator.pop(context, FriendTapChoice.showOnWidget),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionCard(
+                    icon: Icons.swap_horiz_rounded,
+                    title: 'Change note type',
+                    subtitle: 'Toggle text ↔ handwriting',
+                    onTap: () => Navigator.pop(context, FriendTapChoice.changeNoteType),
                   ),
                   const SizedBox(height: 16),
                   CustomButton(

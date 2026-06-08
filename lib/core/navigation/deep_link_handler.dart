@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:noteswidgetapp/features/friends/repository/friends_repository.dart';
-import 'package:noteswidgetapp/features/shared_note/editor/view.dart';
+import 'package:noteswidgetapp/core/navigation/note_editor_launcher.dart';
 
 /// Opens the shared note editor from widget deep links.
 class DeepLinkHandler {
@@ -54,15 +54,11 @@ class DeepLinkHandler {
 
     if (!context.mounted) return false;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SharedNoteEditorScreen(
-          key: ValueKey('note_${friendUid ?? 'w'}_$noteId'),
-          sharedNoteId: noteId,
-          friendUid: friendUid,
-          friendLabel: friendLabel,
-        ),
-      ),
+    await NoteEditorLauncher.openShared(
+      context: context,
+      sharedNoteId: noteId,
+      friendUid: friendUid,
+      friendLabel: friendLabel,
     );
     return true;
   }

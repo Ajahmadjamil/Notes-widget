@@ -1,3 +1,5 @@
+import 'package:noteswidgetapp/core/notes/note_type.dart';
+
 class Note {
   final String noteId;
   final String ownerId;
@@ -8,6 +10,8 @@ class Note {
   final String? pendingSync;
   final bool isDeleted;
   final bool isPinned;
+  final NoteType noteType;
+  final String drawingData;
 
   const Note({
     required this.noteId,
@@ -19,9 +23,12 @@ class Note {
     this.pendingSync,
     this.isDeleted = false,
     this.isPinned = false,
+    this.noteType = NoteType.text,
+    this.drawingData = '',
   });
 
   bool get hasPendingSync => pendingSync != null && pendingSync!.isNotEmpty;
+  bool get isDrawing => noteType == NoteType.drawing;
 
   Note copyWith({
     String? title,
@@ -31,6 +38,8 @@ class Note {
     bool clearPendingSync = false,
     bool? isDeleted,
     bool? isPinned,
+    NoteType? noteType,
+    String? drawingData,
   }) {
     return Note(
       noteId: noteId,
@@ -42,6 +51,8 @@ class Note {
       pendingSync: clearPendingSync ? null : (pendingSync ?? this.pendingSync),
       isDeleted: isDeleted ?? this.isDeleted,
       isPinned: isPinned ?? this.isPinned,
+      noteType: noteType ?? this.noteType,
+      drawingData: drawingData ?? this.drawingData,
     );
   }
 
@@ -53,6 +64,8 @@ class Note {
       body: data['body'] as String? ?? '',
       createdAt: _asInt(data['created_at']) ?? 0,
       updatedAt: _asInt(data['updated_at']) ?? 0,
+      noteType: NoteType.fromString(data['note_type'] as String?),
+      drawingData: data['drawing_data'] as String? ?? '',
     );
   }
 
@@ -67,6 +80,8 @@ class Note {
       pendingSync: row['pending_sync'] as String?,
       isDeleted: (row['is_deleted'] as int? ?? 0) == 1,
       isPinned: (row['is_pinned'] as int? ?? 0) == 1,
+      noteType: NoteType.fromString(row['note_type'] as String?),
+      drawingData: row['drawing_data'] as String? ?? '',
     );
   }
 
@@ -80,6 +95,8 @@ class Note {
         'pending_sync': pendingSync,
         'is_deleted': isDeleted ? 1 : 0,
         'is_pinned': isPinned ? 1 : 0,
+        'note_type': noteType.value,
+        'drawing_data': drawingData,
       };
 
   static int? _asInt(dynamic value) {
