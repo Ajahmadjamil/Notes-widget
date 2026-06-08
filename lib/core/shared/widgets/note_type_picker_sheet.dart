@@ -25,7 +25,7 @@ class NoteTypePickerSheet extends StatelessWidget {
     return showModalBottomSheet<NoteType>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: AppColors.selectedColor.withValues(alpha: 0.35),
+      barrierColor: AppColors.secondaryColor.withValues(alpha: 0.35),
       builder: (_) => NoteTypePickerSheet(title: title, subtitle: subtitle),
     );
   }
@@ -35,7 +35,12 @@ class NoteTypePickerSheet extends StatelessWidget {
     return FadeSlideIn(
       slideOffset: 32,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.paddingOf(context).bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          MediaQuery.paddingOf(context).bottom + 16,
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
@@ -47,11 +52,20 @@ class NoteTypePickerSheet extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title, style: getBoldStyle(fontSize: 20, color: AppColors.textColor)),
+                  Text(
+                    title,
+                    style: getBoldStyle(
+                      fontSize: 20,
+                      color: AppColors.textColor,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     subtitle,
-                    style: getRegularStyle(fontSize: 13, color: AppColors.textColor2),
+                    style: getRegularStyle(
+                      fontSize: 13,
+                      color: AppColors.textColor2,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _OptionCard(
@@ -103,18 +117,38 @@ class _OptionCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(icon, color: isPrimary ? AppColors.selectedColor : AppColors.textColor2, size: 28),
+            Icon(
+              icon,
+              color: isPrimary ? AppColors.selectedColor : AppColors.textColor2,
+              size: 28,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: getSemiBoldStyle(fontSize: 15, color: AppColors.textColor)),
-                  Text(subtitle, style: getRegularStyle(fontSize: 12, color: AppColors.textColor2)),
+                  Text(
+                    title,
+                    style: getSemiBoldStyle(
+                      fontSize: 15,
+                      color: AppColors.textColor,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: getRegularStyle(
+                      fontSize: 12,
+                      color: AppColors.textColor2,
+                    ),
+                  ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.textColor2, size: 18),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textColor2,
+              size: 18,
+            ),
           ],
         ),
       ),

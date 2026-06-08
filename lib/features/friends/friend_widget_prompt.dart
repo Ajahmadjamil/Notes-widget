@@ -34,7 +34,7 @@ class FriendWidgetPrompt {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: AppColors.selectedColor.withValues(alpha: 0.35),
+      barrierColor: AppColors.secondaryColor.withValues(alpha: 0.35),
       builder: (ctx) => _FriendActionSheet(friend: friend),
     );
 
@@ -45,7 +45,8 @@ class FriendWidgetPrompt {
       return;
     }
 
-    if (choice == FriendTapChoice.showOnWidget || choice == FriendTapChoice.openNoteOnly) {
+    if (choice == FriendTapChoice.showOnWidget ||
+        choice == FriendTapChoice.openNoteOnly) {
       final ready = await _ensureInitialNoteType(context, friend);
       if (!ready || !context.mounted) return;
     }
@@ -57,11 +58,14 @@ class FriendWidgetPrompt {
       );
       await WidgetSetupHelper.requestPinIfNeeded();
       if (!context.mounted) return;
-      AppConstants.showToast('${friend.displayLabel} is on your home screen widget');
+      AppConstants.showToast(
+        '${friend.displayLabel} is on your home screen widget',
+      );
     }
 
     if (!context.mounted) return;
-    if (choice == FriendTapChoice.showOnWidget || choice == FriendTapChoice.openNoteOnly) {
+    if (choice == FriendTapChoice.showOnWidget ||
+        choice == FriendTapChoice.openNoteOnly) {
       await NoteEditorLauncher.openShared(
         context: context,
         sharedNoteId: friend.sharedNoteId,
@@ -109,17 +113,22 @@ class FriendWidgetPrompt {
     return true;
   }
 
-  static Future<void> _changeNoteType(BuildContext context, Friend friend) async {
+  static Future<void> _changeNoteType(
+    BuildContext context,
+    Friend friend,
+  ) async {
     final note = await _repo.fetchOnce(friend.sharedNoteId);
     if (note == null) {
       AppConstants.showToast('Could not load shared note');
       return;
     }
 
-    final newType =
-        note.noteType == NoteType.drawing ? NoteType.text : NoteType.drawing;
+    final newType = note.noteType == NoteType.drawing
+        ? NoteType.text
+        : NoteType.drawing;
 
-    if (newType == NoteType.drawing && !SchemaCapabilities.drawingNotesSupported) {
+    if (newType == NoteType.drawing &&
+        !SchemaCapabilities.drawingNotesSupported) {
       AppConstants.showToast(
         'Run RUN_IN_SUPABASE_SQL_EDITOR.sql in Supabase to enable handwriting',
       );
@@ -148,8 +157,14 @@ class FriendWidgetPrompt {
           style: getRegularStyle(color: AppColors.textColor2),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Switch')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Switch'),
+          ),
         ],
       ),
     );
@@ -173,7 +188,9 @@ class FriendWidgetPrompt {
       }
 
       AppConstants.showToast(
-        newType == NoteType.drawing ? 'Switched to handwriting' : 'Switched to text',
+        newType == NoteType.drawing
+            ? 'Switched to handwriting'
+            : 'Switched to text',
       );
 
       if (!context.mounted) return;
@@ -196,12 +213,19 @@ class _FriendActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = (friend.profile?.username ?? friend.friendUid).substring(0, 1).toUpperCase();
+    final initial = (friend.profile?.username ?? friend.friendUid)
+        .substring(0, 1)
+        .toUpperCase();
 
     return FadeSlideIn(
       slideOffset: 40,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.paddingOf(context).bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          MediaQuery.paddingOf(context).bottom + 16,
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(32),
           child: BackdropFilter(
@@ -244,31 +268,44 @@ class _FriendActionSheet extends StatelessWidget {
                     alignment: Alignment.center,
                     child: Text(
                       initial,
-                      style: getBoldStyle(fontSize: 24, color: AppColors.textColor1),
+                      style: getBoldStyle(
+                        fontSize: 24,
+                        color: AppColors.textColor1,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     friend.displayLabel,
-                    style: getBoldStyle(fontSize: 20, color: AppColors.textColor),
+                    style: getBoldStyle(
+                      fontSize: 20,
+                      color: AppColors.textColor,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     friend.subtitle,
-                    style: getRegularStyle(fontSize: 13, color: AppColors.textColor2),
+                    style: getRegularStyle(
+                      fontSize: 13,
+                      color: AppColors.textColor2,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Choose how you want to interact with this shared note',
                     textAlign: TextAlign.center,
-                    style: getRegularStyle(fontSize: 12, color: AppColors.textColor2),
+                    style: getRegularStyle(
+                      fontSize: 12,
+                      color: AppColors.textColor2,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   _ActionCard(
                     icon: Icons.edit_note_rounded,
                     title: 'Edit shared note',
                     subtitle: 'Open and collaborate in real time',
-                    onTap: () => Navigator.pop(context, FriendTapChoice.openNoteOnly),
+                    onTap: () =>
+                        Navigator.pop(context, FriendTapChoice.openNoteOnly),
                   ),
                   const SizedBox(height: 10),
                   _ActionCard(
@@ -276,14 +313,16 @@ class _FriendActionSheet extends StatelessWidget {
                     title: 'Add to home widget',
                     subtitle: 'Pin their note to your home screen',
                     isPrimary: true,
-                    onTap: () => Navigator.pop(context, FriendTapChoice.showOnWidget),
+                    onTap: () =>
+                        Navigator.pop(context, FriendTapChoice.showOnWidget),
                   ),
                   const SizedBox(height: 10),
                   _ActionCard(
                     icon: Icons.swap_horiz_rounded,
                     title: 'Change note type',
                     subtitle: 'Toggle text ↔ handwriting',
-                    onTap: () => Navigator.pop(context, FriendTapChoice.changeNoteType),
+                    onTap: () =>
+                        Navigator.pop(context, FriendTapChoice.changeNoteType),
                   ),
                   const SizedBox(height: 16),
                   CustomButton(
@@ -339,7 +378,9 @@ class _ActionCard extends StatelessWidget {
               ),
               child: Icon(
                 icon,
-                color: isPrimary ? AppColors.textColor1 : AppColors.selectedColor,
+                color: isPrimary
+                    ? AppColors.textColor1
+                    : AppColors.selectedColor,
                 size: 24,
               ),
             ),
@@ -352,7 +393,9 @@ class _ActionCard extends StatelessWidget {
                     title,
                     style: getSemiBoldStyle(
                       fontSize: 14,
-                      color: isPrimary ? AppColors.textColor1 : AppColors.textColor,
+                      color: isPrimary
+                          ? AppColors.textColor1
+                          : AppColors.textColor,
                     ),
                   ),
                   Text(
