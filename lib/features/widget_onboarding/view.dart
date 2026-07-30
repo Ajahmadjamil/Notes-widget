@@ -4,27 +4,13 @@ import 'package:noteswidgetapp/core/shared/widgets/app_container.dart';
 import 'package:noteswidgetapp/core/shared/widgets/custom_button.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
-import 'package:noteswidgetapp/core/widget/widget_setup_helper.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/alerts/custom_loading.dart';
 import 'controller.dart';
 
-class WidgetOnboardingScreen extends StatefulWidget {
+class WidgetOnboardingScreen extends StatelessWidget {
   const WidgetOnboardingScreen({super.key});
-
-  @override
-  State<WidgetOnboardingScreen> createState() => _WidgetOnboardingScreenState();
-}
-
-class _WidgetOnboardingScreenState extends State<WidgetOnboardingScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetSetupHelper.requestPinIfNeeded();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {

@@ -9,7 +9,6 @@ import 'package:noteswidgetapp/core/sync/shared_note_realtime_service.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/core/widget/home_widget_service.dart';
-import 'package:noteswidgetapp/core/widget/widget_setup_helper.dart';
 import 'package:noteswidgetapp/features/friends/my_friends/controller.dart';
 import 'package:noteswidgetapp/features/friends/my_friends/view.dart';
 import 'package:noteswidgetapp/features/home/home_tab_view.dart';
@@ -49,7 +48,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await HomeWidgetService.syncOnAppLaunch();
     await SharedNoteRealtimeService.instance.start();
     SharedNotePollService.instance.start();
-    WidgetSetupHelper.requestPinIfNeeded();
 
     if (!mounted) return;
     DeepLinkHandler.listenForWidgetClicks(context);

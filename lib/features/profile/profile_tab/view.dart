@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:noteswidgetapp/core/alerts/custom_loading.dart';
 import 'package:noteswidgetapp/core/constants/app_constants.dart';
 import 'package:noteswidgetapp/core/shared/animations/app_animations.dart';
 import 'package:noteswidgetapp/core/shared/widgets/app_container.dart';
@@ -123,11 +124,28 @@ class _ProfileTabState extends State<ProfileTab> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _signOut(BuildContext context) async {
-    SharedNotePollService.instance.stop();
-    await SharedNoteRealtimeService.instance.stop();
-    await PushSyncService.clearTokenOnSignOut();
-    await PushSyncService.dispose();
-    await SignInRepository().signOut();
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: AppColors.selectedColor.withValues(alpha: 0.4),
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: CustomLoading(),
+      ),
+    );
+
+    try {
+      SharedNotePollService.instance.stop();
+      await SharedNoteRealtimeService.instance.stop();
+      await PushSyncService.clearTokenOnSignOut();
+      await PushSyncService.dispose();
+      await SignInRepository().signOut();
+    } finally {
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    }
+
     if (!context.mounted) return;
     AppConstants.showToast('Signed out');
     Navigator.of(context).pushAndRemoveUntil(

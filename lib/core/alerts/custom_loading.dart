@@ -24,9 +24,12 @@ class CustomLoading extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Please wait...',
-              style: getSemiBoldStyle(color: AppColors.textColor, fontSize: 16),
+            Material(
+              color: AppColors.transparent,
+              child: Text(
+                'Please wait...',
+                style: getSemiBoldStyle(color: AppColors.textColor, fontSize: 16),
+              ),
             ),
           ],
         ),

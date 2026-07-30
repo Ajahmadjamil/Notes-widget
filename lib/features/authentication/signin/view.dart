@@ -21,19 +21,23 @@ class LoginScreen extends StatelessWidget {
         builder: (context, controller, _) {
           return Stack(
             children: [
-              SafeArea(
-                child: GestureDetector(
-                  onTap: () => FocusScope.of(context).unfocus(),
-                  child: Scaffold(
-                    backgroundColor: AppColors.bgColor,
-                    resizeToAvoidBottomInset: true,
-                    body: LayoutBuilder(
+              GestureDetector(
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: Scaffold(
+                  backgroundColor: AppColors.bgColor,
+                  resizeToAvoidBottomInset: true,
+                  body: SafeArea(
+                    child: LayoutBuilder(
                       builder: (context, constraints) {
                         return SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
                               child: Column(
                                 children: [
                                   const SizedBox(height: 48),
@@ -73,9 +77,15 @@ class LoginScreen extends StatelessWidget {
                                     delay: const Duration(milliseconds: 150),
                                     child: AppContainer(
                                       borderRadius: 36,
-                                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        24,
+                                        28,
+                                        24,
+                                        24,
+                                      ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
                                         children: [
                                           Text(
                                             controller.isSignUpMode
@@ -107,11 +117,16 @@ class LoginScreen extends StatelessWidget {
                                           const SizedBox(height: 8),
                                           InputField(
                                             hint: 'Enter Email Address',
-                                            controller: controller.emailController,
-                                            focusNode: controller.emailFocusNode,
-                                            nextFocusNode: controller.passwordFocusNode,
-                                            textInputAction: TextInputAction.next,
-                                            prefixIcon: Icons.alternate_email_rounded,
+                                            controller:
+                                                controller.emailController,
+                                            focusNode:
+                                                controller.emailFocusNode,
+                                            nextFocusNode:
+                                                controller.passwordFocusNode,
+                                            textInputAction:
+                                                TextInputAction.next,
+                                            prefixIcon:
+                                                Icons.alternate_email_rounded,
                                           ),
                                           const SizedBox(height: 16),
                                           Text(
@@ -124,16 +139,23 @@ class LoginScreen extends StatelessWidget {
                                           const SizedBox(height: 8),
                                           InputField(
                                             hint: 'Enter Password',
-                                            controller: controller.passwordController,
+                                            controller:
+                                                controller.passwordController,
                                             isPassword: true,
-                                            focusNode: controller.passwordFocusNode,
-                                            textInputAction: TextInputAction.done,
-                                            prefixIcon: Icons.lock_outline_rounded,
+                                            focusNode:
+                                                controller.passwordFocusNode,
+                                            textInputAction:
+                                                TextInputAction.done,
+                                            prefixIcon:
+                                                Icons.lock_outline_rounded,
                                           ),
                                           const SizedBox(height: 24),
                                           CustomButton(
-                                            onTap: () => controller.submitEmailPassword(context),
-                                            label: controller.isSignUpMode ? 'Sign Up' : 'Initialize Sync',
+                                            onTap: () => controller
+                                                .submitEmailPassword(context),
+                                            label: controller.isSignUpMode
+                                                ? 'Sign Up'
+                                                : 'Initialize Sync',
                                             color: AppColors.primaryColor,
                                             widget: const Icon(
                                               Icons.arrow_forward_rounded,
@@ -144,23 +166,38 @@ class LoginScreen extends StatelessWidget {
                                           const SizedBox(height: 16),
                                           Row(
                                             children: [
-                                              Expanded(child: Divider(color: AppColors.borderColor)),
+                                              Expanded(
+                                                child: Divider(
+                                                  color: AppColors.borderColor,
+                                                ),
+                                              ),
                                               Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                ),
                                                 child: Text(
                                                   'OR',
                                                   style: getRegularStyle(
                                                     fontSize: 11,
-                                                    color: AppColors.textColor2,
-                                                  ).copyWith(letterSpacing: 1.5),
+                                                    color:
+                                                        AppColors.textColor2,
+                                                  ).copyWith(
+                                                    letterSpacing: 1.5,
+                                                  ),
                                                 ),
                                               ),
-                                              Expanded(child: Divider(color: AppColors.borderColor)),
+                                              Expanded(
+                                                child: Divider(
+                                                  color: AppColors.borderColor,
+                                                ),
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 16),
                                           CustomButton(
-                                            onTap: () => controller.signInWithGoogle(context),
+                                            onTap: () => controller
+                                                .signInWithGoogle(context),
                                             label: 'Continue with Google',
                                             color: AppColors.btnColorLight,
                                             style: getMediumStyle(
@@ -186,7 +223,9 @@ class LoginScreen extends StatelessWidget {
                                         controller.isSignUpMode
                                             ? 'Already have an account? Log in'
                                             : 'New here? Create an account',
-                                        style: getRegularStyle(color: AppColors.primaryColor),
+                                        style: getRegularStyle(
+                                          color: AppColors.primaryColor,
+                                        ),
                                       ),
                                     ),
                                   ),

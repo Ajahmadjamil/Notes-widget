@@ -1,5 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:noteswidgetapp/core/theme/app_theme_palette.dart';
+
+/// Status / nav bar style so icons stay visible on [palette.background].
+SystemUiOverlayStyle systemOverlayForPalette(AppThemePalette palette) {
+  final isDark = palette.brightness == Brightness.dark;
+  return SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+    statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+    systemNavigationBarColor: palette.background,
+    systemNavigationBarIconBrightness:
+        isDark ? Brightness.light : Brightness.dark,
+    systemNavigationBarDividerColor: Colors.transparent,
+  );
+}
 
 /// Builds Material 3 [ThemeData] from a semantic palette.
 ThemeData buildAppTheme(AppThemePalette palette) {
@@ -15,6 +30,8 @@ ThemeData buildAppTheme(AppThemePalette palette) {
     onError: Colors.white,
   );
 
+  final overlay = systemOverlayForPalette(palette);
+
   return ThemeData(
     useMaterial3: true,
     brightness: palette.brightness,
@@ -25,6 +42,7 @@ ThemeData buildAppTheme(AppThemePalette palette) {
       foregroundColor: palette.onBackground,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: overlay,
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: palette.primary,

@@ -38,15 +38,28 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
+    final palette = AppThemeProvider.instance.palette;
+    final overlay = systemOverlayForPalette(palette);
+    SystemChrome.setSystemUIOverlayStyle(overlay);
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SplashController()),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Notes Widget',
-        theme: buildAppTheme(AppThemeProvider.instance.palette),
-        home: const SplashScreen(),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: overlay,
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Notes Widget',
+          theme: buildAppTheme(palette),
+          builder: (context, child) {
+            return ColoredBox(
+              color: palette.background,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+          home: const SplashScreen(),
+        ),
       ),
     );
   }
