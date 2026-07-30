@@ -139,6 +139,9 @@ class NoteGridCard extends StatelessWidget {
                       height: 72,
                     ),
                   ),
+                ] else if (note.isDocument) ...[
+                  const SizedBox(height: 8),
+                  _DocumentPreview(note: note),
                 ] else if (note.body.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
@@ -165,6 +168,66 @@ class NoteGridCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DocumentPreview extends StatelessWidget {
+  final Note note;
+
+  const _DocumentPreview({required this.note});
+
+  @override
+  Widget build(BuildContext context) {
+    final doc = note.document;
+    final preview = doc.previewText;
+    final chips = <Widget>[
+      if (doc.imageCount > 0)
+        _chip(Icons.image_outlined, '${doc.imageCount}'),
+      if (doc.audioCount > 0)
+        _chip(Icons.mic_none_rounded, '${doc.audioCount}'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (preview.isNotEmpty)
+          Text(
+            preview,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: getRegularStyle(
+              fontSize: 14,
+              color: AppColors.textColor2,
+            ).copyWith(height: 1.35),
+          ),
+        if (chips.isNotEmpty) ...[
+          if (preview.isNotEmpty) const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 4, children: chips),
+        ],
+        if (preview.isEmpty && chips.isEmpty)
+          Text(
+            'Empty document',
+            style: getRegularStyle(
+              fontSize: 13,
+              color: AppColors.textColor2,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _chip(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppColors.selectedColor),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: getRegularStyle(fontSize: 12, color: AppColors.textColor2),
+        ),
+      ],
     );
   }
 }

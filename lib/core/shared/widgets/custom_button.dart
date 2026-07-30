@@ -59,9 +59,15 @@ class CustomButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              style: style ?? getMediumStyle(fontSize: 14, color: textColor),
+            Material(
+              color: AppColors.transparent,
+              child: Material(
+                color: AppColors.transparent,
+                child: Text(
+                  label,
+                  style: style ?? getMediumStyle(fontSize: 14, color: textColor),
+                ),
+              ),
             ),
             if (widget != null)
               Padding(

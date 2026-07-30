@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/notes/note_type.dart';
+import 'package:noteswidgetapp/features/notes/document_editor/view.dart';
 import 'package:noteswidgetapp/features/notes/handwriting_editor/view.dart';
 import 'package:noteswidgetapp/features/notes/model/note.dart';
 import 'package:noteswidgetapp/features/notes/note_editor/view.dart';
@@ -11,7 +12,16 @@ class NoteEditorLauncher {
   static Future<void> openPersonal(BuildContext context, Note note) {
     if (note.noteType == NoteType.drawing) {
       return Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => HandwritingEditorScreen(noteId: note.noteId)),
+        MaterialPageRoute(
+          builder: (_) => HandwritingEditorScreen(noteId: note.noteId),
+        ),
+      );
+    }
+    if (note.noteType == NoteType.document) {
+      return Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DocumentEditorScreen(noteId: note.noteId),
+        ),
       );
     }
     return Navigator.of(context).push(

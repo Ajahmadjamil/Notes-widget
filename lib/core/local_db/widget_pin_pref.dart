@@ -21,6 +21,8 @@ class WidgetPinPref {
           await _markPinned();
           return true;
         }
+        // Widget not installed — do not treat onboarding skip as "installed".
+        return false;
       } catch (_) {}
     }
 

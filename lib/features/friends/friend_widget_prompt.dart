@@ -7,6 +7,7 @@ import 'package:noteswidgetapp/core/notes/note_type.dart';
 import 'package:noteswidgetapp/core/shared/animations/app_animations.dart';
 import 'package:noteswidgetapp/core/shared/widgets/app_container.dart';
 import 'package:noteswidgetapp/core/shared/widgets/custom_button.dart';
+import 'package:noteswidgetapp/core/shared/widgets/glass_confirm_dialog.dart';
 import 'package:noteswidgetapp/core/shared/widgets/note_type_picker_sheet.dart';
 import 'package:noteswidgetapp/core/supabase/schema_capabilities.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
@@ -56,10 +57,10 @@ class FriendWidgetPrompt {
         sharedNoteId: friend.sharedNoteId,
         friendLabel: friend.displayLabel,
       );
-      await WidgetSetupHelper.requestPinIfNeeded();
+      await WidgetSetupHelper.requestPinExplicitly();
       if (!context.mounted) return;
       AppConstants.showToast(
-        '${friend.displayLabel} is on your home screen widget',
+        'Add the widget if prompted — ${friend.displayLabel} is ready',
       );
     }
 
@@ -93,7 +94,7 @@ class FriendWidgetPrompt {
     final type = await NoteTypePickerSheet.show(
       context,
       title: 'Shared note type',
-      subtitle: 'Choose text or handwriting for this friend\'s note',
+      subtitle: 'Choose text, document, or handwriting',
     );
     if (type == null) return false;
 
@@ -103,13 +104,18 @@ class FriendWidgetPrompt {
       );
       return true;
     }
-
-    if (type == NoteType.drawing) {
-      await _repo.setNoteType(
-        sharedNoteId: note.sharedNoteId,
-        noteType: NoteType.drawing,
+    if (type == NoteType.document &&
+        !SchemaCapabilities.documentNotesSupported) {
+      AppConstants.showToast(
+        'Run RUN_DOCUMENT_NOTES_SQL.sql in Supabase to enable documents',
       );
+      return true;
     }
+
+    await _repo.setNoteType(
+      sharedNoteId: note.sharedNoteId,
+      noteType: type,
+    );
     return true;
   }
 
@@ -123,9 +129,14 @@ class FriendWidgetPrompt {
       return;
     }
 
-    final newType = note.noteType == NoteType.drawing
-        ? NoteType.text
-        : NoteType.drawing;
+    if (!context.mounted) return;
+    final newType = await NoteTypePickerSheet.show(
+      context,
+      title: 'Change note type',
+      subtitle: 'Pick a different type — current content will be cleared',
+      excludeTypes: {note.noteType},
+    );
+    if (newType == null || !context.mounted) return;
 
     if (newType == NoteType.drawing &&
         !SchemaCapabilities.drawingNotesSupported) {
@@ -134,41 +145,29 @@ class FriendWidgetPrompt {
       );
       return;
     }
+    if (newType == NoteType.document &&
+        !SchemaCapabilities.documentNotesSupported) {
+      AppConstants.showToast(
+        'Run RUN_DOCUMENT_NOTES_SQL.sql in Supabase to enable documents',
+      );
+      return;
+    }
 
-    if (!context.mounted) return;
+    final hasContent = note.body.trim().isNotEmpty ||
+        note.drawingData.trim().isNotEmpty ||
+        note.documentData.trim().isNotEmpty;
 
-    final hasContent = note.noteType == NoteType.text
-        ? note.body.trim().isNotEmpty
-        : note.drawingData.trim().isNotEmpty;
-    final targetLabel = newType == NoteType.drawing ? 'handwriting' : 'text';
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgColor,
-        title: Text(
-          'Switch to $targetLabel?',
-          style: getSemiBoldStyle(color: AppColors.textColor),
-        ),
-        content: Text(
-          hasContent
-              ? 'Current content will be cleared when switching to $targetLabel.'
-              : 'This shared note will open as $targetLabel.',
-          style: getRegularStyle(color: AppColors.textColor2),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Switch'),
-          ),
-        ],
-      ),
+    final ok = await GlassConfirmDialog.show(
+      context,
+      title: 'Switch note type?',
+      message: hasContent
+          ? 'Current content will be cleared when switching.'
+          : 'This shared note will open as the new type.',
+      confirmLabel: 'Switch',
+      cancelLabel: 'Cancel',
+      icon: Icons.swap_horiz_rounded,
     );
-    if (ok != true || !context.mounted) return;
+    if (!ok || !context.mounted) return;
 
     try {
       final updated = await _repo.changeNoteType(
@@ -187,11 +186,12 @@ class FriendWidgetPrompt {
         );
       }
 
-      AppConstants.showToast(
-        newType == NoteType.drawing
-            ? 'Switched to handwriting'
-            : 'Switched to text',
-      );
+      final label = switch (newType) {
+        NoteType.drawing => 'handwriting',
+        NoteType.document => 'document',
+        NoteType.text => 'text',
+      };
+      AppConstants.showToast('Switched to $label');
 
       if (!context.mounted) return;
       await NoteEditorLauncher.openShared(
@@ -257,13 +257,6 @@ class _FriendActionSheet extends StatelessWidget {
                           AppColors.selectedColor.withValues(alpha: 0.75),
                         ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.selectedColor.withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -290,15 +283,6 @@ class _FriendActionSheet extends StatelessWidget {
                       color: AppColors.textColor2,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Choose how you want to interact with this shared note',
-                    textAlign: TextAlign.center,
-                    style: getRegularStyle(
-                      fontSize: 12,
-                      color: AppColors.textColor2,
-                    ),
-                  ),
                   const SizedBox(height: 24),
                   _ActionCard(
                     icon: Icons.edit_note_rounded,
@@ -320,7 +304,7 @@ class _FriendActionSheet extends StatelessWidget {
                   _ActionCard(
                     icon: Icons.swap_horiz_rounded,
                     title: 'Change note type',
-                    subtitle: 'Toggle text ↔ handwriting',
+                    subtitle: 'Choose text, document, or handwriting',
                     onTap: () =>
                         Navigator.pop(context, FriendTapChoice.changeNoteType),
                   ),
@@ -367,22 +351,10 @@ class _ActionCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isPrimary
-                    ? AppColors.textColor1.withValues(alpha: 0.15)
-                    : AppColors.selectedColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                icon,
-                color: isPrimary
-                    ? AppColors.textColor1
-                    : AppColors.selectedColor,
-                size: 24,
-              ),
+            Icon(
+              icon,
+              color: isPrimary ? AppColors.textColor1 : AppColors.selectedColor,
+              size: 24,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -409,11 +381,6 @@ class _ActionCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: isPrimary ? AppColors.textColor1 : AppColors.textColor2,
             ),
           ],
         ),

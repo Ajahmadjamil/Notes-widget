@@ -7,7 +7,7 @@ class NotesLocalDb {
   static final NotesLocalDb instance = NotesLocalDb._();
 
   static const _dbName = 'noteswidgetapp_notes.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 5;
   static const tableNotes = 'notes';
 
   Database? _database;
@@ -46,6 +46,11 @@ class NotesLocalDb {
       'drawing_data',
       "ALTER TABLE $tableNotes ADD COLUMN drawing_data TEXT DEFAULT ''",
     );
+    await _addColumnIfMissing(
+      db,
+      'document_data',
+      "ALTER TABLE $tableNotes ADD COLUMN document_data TEXT DEFAULT ''",
+    );
   }
 
   Future<Database> _open() async {
@@ -67,7 +72,8 @@ class NotesLocalDb {
             is_deleted INTEGER NOT NULL DEFAULT 0,
             is_pinned INTEGER NOT NULL DEFAULT 0,
             note_type TEXT NOT NULL DEFAULT 'text',
-            drawing_data TEXT NOT NULL DEFAULT ''
+            drawing_data TEXT NOT NULL DEFAULT '',
+            document_data TEXT NOT NULL DEFAULT ''
           )
         ''');
       },

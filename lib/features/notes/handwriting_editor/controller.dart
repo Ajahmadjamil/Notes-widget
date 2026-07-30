@@ -129,6 +129,11 @@ class HandwritingEditorController with ChangeNotifier {
   }
 
   Future<bool> tryClose() async {
+    _debounceTimer?.cancel();
+    final title = titleController.text.trim();
+    if (drawingData.isEmpty && title.isEmpty) {
+      return deleteNote();
+    }
     if (_hasUnsavedChanges) return save(silent: true);
     return true;
   }

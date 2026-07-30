@@ -40,7 +40,9 @@ class MyNotesController with ChangeNotifier {
           .where(
             (n) =>
                 n.title.toLowerCase().contains(query) ||
-                n.body.toLowerCase().contains(query),
+                n.body.toLowerCase().contains(query) ||
+                (n.isDocument &&
+                    n.document.previewText.toLowerCase().contains(query)),
           )
           .toList();
     }

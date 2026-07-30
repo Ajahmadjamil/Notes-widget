@@ -1,3 +1,4 @@
+import 'package:noteswidgetapp/core/notes/document_data.dart';
 import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:noteswidgetapp/core/supabase/schema_capabilities.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -36,8 +37,21 @@ class NotesSupabaseDataSource {
       payload['note_type'] = note.noteType.value;
       payload['drawing_data'] = note.drawingData;
     }
+    if (SchemaCapabilities.documentNotesSupported) {
+      // Never upload device-local file paths to the cloud.
+      payload['document_data'] = _cloudDocumentData(note.documentData);
+    }
 
     await _client.from('personal_notes').upsert(payload);
+  }
+
+  String _cloudDocumentData(String raw) {
+    final doc = DocumentData.decode(raw);
+    if (doc.blocks.isEmpty) return raw;
+    final cleaned = doc.blocks
+        .map((b) => b.copyWith(localPath: ''))
+        .toList();
+    return DocumentData(blocks: cleaned).encode();
   }
 
   Future<void> deleteNote(String uid, String noteId) async {

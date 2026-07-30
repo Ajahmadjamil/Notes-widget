@@ -1,3 +1,4 @@
+import 'package:noteswidgetapp/core/notes/document_data.dart';
 import 'package:noteswidgetapp/core/notes/note_type.dart';
 
 class Note {
@@ -12,6 +13,7 @@ class Note {
   final bool isPinned;
   final NoteType noteType;
   final String drawingData;
+  final String documentData;
 
   const Note({
     required this.noteId,
@@ -25,10 +27,14 @@ class Note {
     this.isPinned = false,
     this.noteType = NoteType.text,
     this.drawingData = '',
+    this.documentData = '',
   });
 
   bool get hasPendingSync => pendingSync != null && pendingSync!.isNotEmpty;
   bool get isDrawing => noteType == NoteType.drawing;
+  bool get isDocument => noteType == NoteType.document;
+
+  DocumentData get document => DocumentData.decode(documentData);
 
   Note copyWith({
     String? title,
@@ -40,6 +46,7 @@ class Note {
     bool? isPinned,
     NoteType? noteType,
     String? drawingData,
+    String? documentData,
   }) {
     return Note(
       noteId: noteId,
@@ -53,6 +60,7 @@ class Note {
       isPinned: isPinned ?? this.isPinned,
       noteType: noteType ?? this.noteType,
       drawingData: drawingData ?? this.drawingData,
+      documentData: documentData ?? this.documentData,
     );
   }
 
@@ -66,6 +74,7 @@ class Note {
       updatedAt: _asInt(data['updated_at']) ?? 0,
       noteType: NoteType.fromString(data['note_type'] as String?),
       drawingData: data['drawing_data'] as String? ?? '',
+      documentData: data['document_data'] as String? ?? '',
     );
   }
 
@@ -82,6 +91,7 @@ class Note {
       isPinned: (row['is_pinned'] as int? ?? 0) == 1,
       noteType: NoteType.fromString(row['note_type'] as String?),
       drawingData: row['drawing_data'] as String? ?? '',
+      documentData: row['document_data'] as String? ?? '',
     );
   }
 
@@ -97,6 +107,7 @@ class Note {
         'is_pinned': isPinned ? 1 : 0,
         'note_type': noteType.value,
         'drawing_data': drawingData,
+        'document_data': documentData,
       };
 
   static int? _asInt(dynamic value) {

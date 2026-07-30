@@ -148,7 +148,14 @@ class NoteEditorController with ChangeNotifier {
   }
 
   /// Saves if needed, then returns whether the screen can close.
+  /// Empty notes are discarded instead of kept.
   Future<bool> tryClose() async {
+    _debounceTimer?.cancel();
+    final title = titleController.text.trim();
+    final body = bodyController.text.trim();
+    if (title.isEmpty && body.isEmpty) {
+      return deleteNote();
+    }
     if (_hasUnsavedChanges) {
       return save(silent: true);
     }

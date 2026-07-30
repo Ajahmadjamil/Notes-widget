@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/notes/note_type.dart';
 import 'package:noteswidgetapp/core/shared/widgets/note_type_picker_sheet.dart';
+import 'package:noteswidgetapp/core/supabase/schema_capabilities.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
+import 'package:noteswidgetapp/features/shared_note/collab_editor/view.dart';
 import 'package:noteswidgetapp/features/shared_note/handwriting_editor/view.dart';
-import 'package:noteswidgetapp/features/shared_note/editor/view.dart';
 import 'package:noteswidgetapp/features/shared_note/model/shared_note.dart';
 import 'package:noteswidgetapp/features/shared_note/repository/shared_note_repository.dart';
 
-/// Resolves a shared note and routes to text or handwriting editor.
+/// Resolves a shared note and routes to text, document, or handwriting editor.
 class SharedNoteEntryScreen extends StatefulWidget {
   final String sharedNoteId;
   final String friendLabel;
@@ -67,20 +68,27 @@ class _SharedNoteEntryScreenState extends State<SharedNoteEntryScreen> {
       final type = await NoteTypePickerSheet.show(
         context,
         title: 'Shared note type',
-        subtitle: 'Choose text or handwriting for this friend\'s note',
+        subtitle: 'Choose text, document, or handwriting',
       );
       if (!mounted) return;
       if (type == null) {
         Navigator.of(context).pop();
         return;
       }
-      if (type == NoteType.drawing) {
+
+      if (type == NoteType.drawing &&
+          !SchemaCapabilities.drawingNotesSupported) {
+        // Fall through as text if migration missing.
+      } else if (type == NoteType.document &&
+          !SchemaCapabilities.documentNotesSupported) {
+        // Fall through as text if migration missing.
+      } else {
         await _repo.setNoteType(
           sharedNoteId: note.sharedNoteId,
-          noteType: NoteType.drawing,
+          noteType: type,
         );
-        note = await _repo.fetchOnce(note.sharedNoteId) ?? note;
-        note = note.copyWith(noteType: NoteType.drawing);
+        note = await _repo.fetchOnce(note.sharedNoteId) ??
+            note.copyWith(noteType: type);
       }
     }
 
@@ -89,17 +97,21 @@ class _SharedNoteEntryScreenState extends State<SharedNoteEntryScreen> {
   }
 
   void _openEditor(SharedNote note) {
-    final screen = note.noteType == NoteType.drawing
-        ? SharedHandwritingEditorScreen(
-            sharedNoteId: note.sharedNoteId,
-            friendLabel: widget.friendLabel,
-            friendUid: widget.friendUid,
-          )
-        : SharedNoteEditorScreen(
-            sharedNoteId: note.sharedNoteId,
-            friendLabel: widget.friendLabel,
-            friendUid: widget.friendUid,
-          );
+    final Widget screen;
+    if (note.noteType == NoteType.drawing) {
+      screen = SharedHandwritingEditorScreen(
+        sharedNoteId: note.sharedNoteId,
+        friendLabel: widget.friendLabel,
+        friendUid: widget.friendUid,
+      );
+    } else {
+      screen = SharedCollabEditorScreen(
+        sharedNoteId: note.sharedNoteId,
+        friendLabel: widget.friendLabel,
+        friendUid: widget.friendUid,
+        textOnly: note.noteType != NoteType.document,
+      );
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => screen),

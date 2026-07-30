@@ -1,3 +1,4 @@
+import 'package:noteswidgetapp/core/notes/document_data.dart';
 import 'package:noteswidgetapp/core/notes/note_type.dart';
 
 class SharedNote {
@@ -12,6 +13,7 @@ class SharedNote {
   final String updatedBy;
   final NoteType noteType;
   final String drawingData;
+  final String documentData;
 
   const SharedNote({
     required this.sharedNoteId,
@@ -25,15 +27,27 @@ class SharedNote {
     required this.updatedBy,
     this.noteType = NoteType.text,
     this.drawingData = '',
+    this.documentData = '',
   });
 
   bool get isDrawing => noteType == NoteType.drawing;
+  bool get isDocument => noteType == NoteType.document;
+
+  DocumentData get document {
+    final parsed = DocumentData.decode(documentData);
+    if (parsed.blocks.isNotEmpty) return parsed;
+    if (body.trim().isNotEmpty && noteType != NoteType.drawing) {
+      return DocumentData.fromLegacyBody(body, authorId: updatedBy);
+    }
+    return const DocumentData();
+  }
 
   bool get isUnset =>
-      noteType == NoteType.text &&
       title == 'Shared note' &&
       body.isEmpty &&
-      drawingData.isEmpty;
+      drawingData.isEmpty &&
+      documentData.isEmpty &&
+      noteType == NoteType.text;
 
   SharedNote copyWith({
     String? title,
@@ -42,6 +56,7 @@ class SharedNote {
     String? updatedBy,
     NoteType? noteType,
     String? drawingData,
+    String? documentData,
   }) {
     return SharedNote(
       sharedNoteId: sharedNoteId,
@@ -55,6 +70,7 @@ class SharedNote {
       updatedBy: updatedBy ?? this.updatedBy,
       noteType: noteType ?? this.noteType,
       drawingData: drawingData ?? this.drawingData,
+      documentData: documentData ?? this.documentData,
     );
   }
 
@@ -77,11 +93,12 @@ class SharedNote {
       user2: user2,
       title: row['title'] as String? ?? '',
       body: row['body'] as String? ?? '',
-      createdAt: _timestampMillis(row['created_at']) ?? 0,
-      updatedAt: _timestampMillis(row['updated_at']) ?? 0,
+      createdAt: _timestampMillis(row['created_at']),
+      updatedAt: _timestampMillis(row['updated_at']),
       updatedBy: row['updated_by'] as String? ?? '',
       noteType: NoteType.fromString(row['note_type'] as String?),
       drawingData: row['drawing_data'] as String? ?? '',
+      documentData: row['document_data'] as String? ?? '',
     );
   }
 

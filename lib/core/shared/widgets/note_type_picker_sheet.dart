@@ -10,28 +10,60 @@ import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 class NoteTypePickerSheet extends StatelessWidget {
   final String title;
   final String subtitle;
+  final Set<NoteType> excludeTypes;
 
   const NoteTypePickerSheet({
     super.key,
     this.title = 'Create new',
     this.subtitle = 'Choose how you want to capture this note',
+    this.excludeTypes = const {},
   });
 
   static Future<NoteType?> show(
     BuildContext context, {
     String title = 'Create new',
     String subtitle = 'Choose how you want to capture this note',
+    Set<NoteType> excludeTypes = const {},
   }) {
     return showModalBottomSheet<NoteType>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: AppColors.secondaryColor.withValues(alpha: 0.35),
-      builder: (_) => NoteTypePickerSheet(title: title, subtitle: subtitle),
+      builder: (_) => NoteTypePickerSheet(
+        title: title,
+        subtitle: subtitle,
+        excludeTypes: excludeTypes,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final options = <_OptionCard>[
+      if (!excludeTypes.contains(NoteType.text))
+        _OptionCard(
+          icon: Icons.notes_rounded,
+          title: 'Text',
+          subtitle: 'Type with keyboard — like you do now',
+          onTap: () => Navigator.pop(context, NoteType.text),
+        ),
+      if (!excludeTypes.contains(NoteType.document))
+        _OptionCard(
+          icon: Icons.article_outlined,
+          title: 'Document',
+          subtitle: 'Mix text, photos, and voice recordings',
+          isPrimary: true,
+          onTap: () => Navigator.pop(context, NoteType.document),
+        ),
+      if (!excludeTypes.contains(NoteType.drawing))
+        _OptionCard(
+          icon: Icons.draw_rounded,
+          title: 'Note',
+          subtitle: 'Handwrite on a canvas with your finger',
+          onTap: () => Navigator.pop(context, NoteType.drawing),
+        ),
+    ];
+
     return FadeSlideIn(
       slideOffset: 32,
       child: Padding(
@@ -68,20 +100,10 @@ class NoteTypePickerSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _OptionCard(
-                    icon: Icons.notes_rounded,
-                    title: 'Text',
-                    subtitle: 'Type with keyboard — like you do now',
-                    onTap: () => Navigator.pop(context, NoteType.text),
-                  ),
-                  const SizedBox(height: 10),
-                  _OptionCard(
-                    icon: Icons.draw_rounded,
-                    title: 'Note',
-                    subtitle: 'Handwrite on a canvas with your finger',
-                    isPrimary: true,
-                    onTap: () => Navigator.pop(context, NoteType.drawing),
-                  ),
+                  for (var i = 0; i < options.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    options[i],
+                  ],
                 ],
               ),
             ),

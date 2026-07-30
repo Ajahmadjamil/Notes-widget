@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:noteswidgetapp/core/media/note_media_storage.dart';
+import 'package:noteswidgetapp/core/notes/document_data.dart';
 import 'package:noteswidgetapp/core/supabase/app_supabase.dart';
 import 'package:noteswidgetapp/features/notes/data/notes_supabase_data_source.dart';
 import 'package:noteswidgetapp/features/notes/data/notes_local_db.dart';
@@ -37,12 +41,37 @@ class NotesRepository {
     for (final remote in remoteNotes.values) {
       if (pendingIds.contains(remote.noteId)) continue;
       final existing = await _local.getNote(remote.noteId);
+      // Keep local media paths when remote has the same storage paths.
+      final merged = _mergeDocumentLocalPaths(existing, remote);
       await _local.upsert(
-        remote.copyWith(
+        merged.copyWith(
           isPinned: existing?.isPinned ?? false,
         ),
       );
     }
+  }
+
+  Note _mergeDocumentLocalPaths(Note? local, Note remote) {
+    if (local == null || !remote.isDocument) return remote;
+    final localDoc = local.document;
+    final remoteDoc = remote.document;
+    if (localDoc.blocks.isEmpty || remoteDoc.blocks.isEmpty) return remote;
+
+    final byId = {for (final b in localDoc.blocks) b.id: b};
+    final mergedBlocks = remoteDoc.blocks.map((rb) {
+      final lb = byId[rb.id];
+      if (lb == null) return rb;
+      if (lb.localPath.isNotEmpty &&
+          rb.storagePath == lb.storagePath &&
+          File(lb.localPath).existsSync()) {
+        return rb.copyWith(localPath: lb.localPath);
+      }
+      return rb;
+    }).toList();
+
+    return remote.copyWith(
+      documentData: DocumentData(blocks: mergedBlocks).encode(),
+    );
   }
 
   Future<void> _pushPending(String uid) async {
@@ -52,15 +81,63 @@ class NotesRepository {
       switch (note.pendingSync) {
         case 'create':
         case 'update':
-          await _remote.saveNote(uid, note.copyWith(clearPendingSync: true));
-          await _local.upsert(note.copyWith(clearPendingSync: true));
+          final prepared = await _uploadPendingMedia(note);
+          await _remote.saveNote(uid, prepared.copyWith(clearPendingSync: true));
+          await _local.upsert(prepared.copyWith(clearPendingSync: true));
           break;
         case 'delete':
+          await _deleteNoteMedia(note);
           await _remote.deleteNote(uid, note.noteId);
           await _local.deletePermanently(note.noteId);
           break;
       }
     }
+  }
+
+  Future<Note> _uploadPendingMedia(Note note) async {
+    if (!note.isDocument) return note;
+    final doc = note.document;
+    var changed = false;
+    final blocks = <DocumentBlock>[];
+
+    for (final block in doc.blocks) {
+      if (!block.needsUpload) {
+        blocks.add(block);
+        continue;
+      }
+      final file = File(block.localPath);
+      if (!await file.exists()) {
+        blocks.add(block);
+        continue;
+      }
+      try {
+        final path = await NoteMediaStorage.uploadFile(
+          ownerId: note.ownerId,
+          noteId: note.noteId,
+          file: file,
+          mimeType: block.mimeType.isNotEmpty
+              ? block.mimeType
+              : (block.type == DocumentBlockType.audio
+                  ? 'audio/mp4'
+                  : 'image/jpeg'),
+        );
+        blocks.add(block.copyWith(storagePath: path));
+        changed = true;
+      } catch (_) {
+        blocks.add(block);
+      }
+    }
+
+    if (!changed) return note;
+    return note.copyWith(documentData: DocumentData(blocks: blocks).encode());
+  }
+
+  Future<void> _deleteNoteMedia(Note note) async {
+    if (!note.isDocument) return;
+    final paths = note.document.blocks
+        .map((b) => b.storagePath)
+        .where((p) => p.isNotEmpty);
+    await NoteMediaStorage.deleteMany(paths);
   }
 
   Future<List<Note>> loadNotes() async {
@@ -79,7 +156,11 @@ class NotesRepository {
   }) async {
     final uid = _uid!;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final defaultTitle = noteType == NoteType.drawing ? 'Handwritten note' : 'Untitled';
+    final defaultTitle = switch (noteType) {
+      NoteType.drawing => 'Handwritten note',
+      NoteType.document => 'Document',
+      NoteType.text => 'Untitled',
+    };
     final note = Note(
       noteId: _uuid.v4(),
       ownerId: uid,
@@ -89,6 +170,14 @@ class NotesRepository {
       updatedAt: now,
       pendingSync: 'create',
       noteType: noteType,
+      documentData: noteType == NoteType.document
+          ? DocumentData(blocks: [
+              DocumentBlock(
+                id: _uuid.v4(),
+                type: DocumentBlockType.text,
+              ),
+            ]).encode()
+          : '',
     );
 
     await _local.upsert(note);
@@ -146,6 +235,38 @@ class NotesRepository {
     return updated;
   }
 
+  Future<Note> updateDocument(
+    Note note, {
+    required String documentData,
+    String? title,
+    String? bodyPreview,
+  }) async {
+    final uid = _uid!;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final pending = note.pendingSync == 'create' ? 'create' : 'update';
+
+    var updated = note.copyWith(
+      title: title?.trim().isNotEmpty == true
+          ? title!.trim()
+          : (note.title.trim().isEmpty ? 'Document' : note.title),
+      body: bodyPreview ?? note.body,
+      documentData: documentData,
+      noteType: NoteType.document,
+      updatedAt: now,
+      pendingSync: pending,
+    );
+
+    await _local.upsert(updated);
+
+    if (await isOnline) {
+      updated = await _uploadPendingMedia(updated);
+      await _remote.saveNote(uid, updated);
+      await _local.upsert(updated.copyWith(clearPendingSync: true));
+    }
+
+    return updated;
+  }
+
   Future<Note> setPinned(Note note, bool pinned) async {
     final uid = _uid!;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -171,6 +292,7 @@ class NotesRepository {
     final uid = _uid!;
 
     if (note.pendingSync == 'create') {
+      await _deleteNoteMedia(note);
       await _local.deletePermanently(note.noteId);
       return;
     }
@@ -183,6 +305,7 @@ class NotesRepository {
     await _local.upsert(marked);
 
     if (await isOnline) {
+      await _deleteNoteMedia(note);
       await _remote.deleteNote(uid, note.noteId);
       await _local.deletePermanently(note.noteId);
     }

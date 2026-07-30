@@ -22,9 +22,14 @@ class SharedNoteRepository {
       'friendships(id, user_id, friend_id)';
 
   static const _drawingColumns = 'note_type, drawing_data';
+  static const _documentColumns = 'note_type, drawing_data, document_data';
 
   Future<String> _noteSelect() async {
     await SchemaCapabilities.ensureProbed(_client);
+    if (SchemaCapabilities.documentNotesSupported) {
+      return 'id, friendship_id, title, body, $_documentColumns, created_at, updated_at, updated_by, '
+          'friendships(id, user_id, friend_id)';
+    }
     if (SchemaCapabilities.drawingNotesSupported) {
       return 'id, friendship_id, title, body, $_drawingColumns, created_at, updated_at, updated_by, '
           'friendships(id, user_id, friend_id)';
@@ -45,6 +50,9 @@ class SharedNoteRepository {
     if (SchemaCapabilities.drawingNotesSupported) {
       payload['note_type'] = NoteType.text.value;
       payload['drawing_data'] = '';
+    }
+    if (SchemaCapabilities.documentNotesSupported) {
+      payload['document_data'] = '';
     }
     return payload;
   }
@@ -203,9 +211,7 @@ class SharedNoteRepository {
 
     final ch = channel;
     controller.onCancel = () async {
-      if (ch != null) {
-        await _client.removeChannel(ch);
-      }
+      await _client.removeChannel(ch);
     };
 
     return controller.stream;
@@ -230,11 +236,11 @@ class SharedNoteRepository {
     final payload = <String, dynamic>{
       'note_type': newType.value,
       'updated_by': uid,
+      'body': '',
+      'drawing_data': '',
     };
-    if (newType == NoteType.text) {
-      payload['drawing_data'] = '';
-    } else {
-      payload['body'] = '';
+    if (SchemaCapabilities.documentNotesSupported) {
+      payload['document_data'] = '';
     }
 
     await _client.from('shared_notes').update(payload).eq('id', sharedNoteId);
@@ -259,10 +265,17 @@ class SharedNoteRepository {
     final existing = await fetchOnce(sharedNoteId);
     if (existing == null) throw StateError('Shared note not found');
 
-    await _client.from('shared_notes').update({
+    final payload = <String, dynamic>{
       'note_type': noteType.value,
       'updated_by': uid,
-    }).eq('id', sharedNoteId);
+    };
+    if (noteType == NoteType.document &&
+        SchemaCapabilities.documentNotesSupported &&
+        existing.documentData.isEmpty) {
+      payload['document_data'] = '';
+    }
+
+    await _client.from('shared_notes').update(payload).eq('id', sharedNoteId);
 
     final saved = await fetchOnce(sharedNoteId);
     if (saved != null) SharedNoteSyncBus.emit(saved);
@@ -274,6 +287,7 @@ class SharedNoteRepository {
     required String body,
     NoteType? noteType,
     String? drawingData,
+    String? documentData,
   }) async {
     final uid = _myUid;
     if (uid == null) throw StateError('Not signed in');
@@ -294,8 +308,13 @@ class SharedNoteRepository {
     if (SchemaCapabilities.drawingNotesSupported) {
       if (noteType != null) payload['note_type'] = noteType.value;
       if (drawingData != null) payload['drawing_data'] = drawingData;
-    } else if (noteType == NoteType.drawing || (drawingData != null && drawingData.isNotEmpty)) {
+    } else if (noteType == NoteType.drawing ||
+        (drawingData != null && drawingData.isNotEmpty)) {
       throw StateError('Handwriting requires a Supabase database migration');
+    }
+    if (SchemaCapabilities.documentNotesSupported && documentData != null) {
+      payload['document_data'] = documentData;
+      if (noteType != null) payload['note_type'] = noteType.value;
     }
 
     await _client.from('shared_notes').update(payload).eq('id', sharedNoteId);

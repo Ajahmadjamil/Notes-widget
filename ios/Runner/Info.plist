@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>SyncNotes needs camera access to add photos to documents.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SyncNotes needs photo library access to attach images to documents.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SyncNotes needs microphone access to record voice notes in documents.</string>
 </dict>
 </plist>
