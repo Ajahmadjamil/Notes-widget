@@ -5,6 +5,7 @@ import 'package:noteswidgetapp/core/shared/widgets/editor_title_divider.dart';
 import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/core/theme/textfont_styles.dart';
 import 'package:noteswidgetapp/features/notes/note_editor/controller.dart';
+import 'package:noteswidgetapp/features/notes/note_editor/widgets/editor_app_bar.dart';
 import 'package:provider/provider.dart';
 
 /// Keep-style plain text editor with auto-save (rich text in a future module).
@@ -52,7 +53,7 @@ class NoteEditorScreen extends StatelessWidget {
             },
             child: Scaffold(
               backgroundColor: AppColors.bgColor,
-              appBar: _EditorAppBar(controller: controller),
+              appBar: NoteEditorAppBar(controller: controller),
               body: SafeArea(
                 child: FadeSlideIn(
                   child: Padding(
@@ -182,66 +183,6 @@ class NoteEditorScreen extends StatelessWidget {
     final ok = await controller.deleteNote();
     if (ok && context.mounted) {
       Navigator.of(context).pop();
-    }
-  }
-}
-
-class _EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final NoteEditorController controller;
-
-  const _EditorAppBar({required this.controller});
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      backgroundColor: AppColors.bgColor,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back_rounded, color: AppColors.textColor),
-        onPressed: () async {
-          final canClose = await controller.tryClose();
-          if (canClose && context.mounted) {
-            Navigator.of(context).pop();
-          }
-        },
-      ),
-      title: Text(
-        controller.statusLabel,
-        style: getRegularStyle(
-          fontSize: 13,
-          color: _statusColor(controller.saveStatus),
-        ),
-      ),
-      centerTitle: true,
-      actions: [
-        if (controller.saveStatus == EditorSaveStatus.unsaved)
-          TextButton(
-            onPressed: controller.saveStatus == EditorSaveStatus.saving
-                ? null
-                : () => controller.save(),
-            child: Text(
-              'Save',
-              style: getMediumStyle(color: AppColors.primaryColor),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Color _statusColor(EditorSaveStatus status) {
-    switch (status) {
-      case EditorSaveStatus.error:
-        return AppColors.textColorRed;
-      case EditorSaveStatus.unsaved:
-        return AppColors.primaryColor;
-      case EditorSaveStatus.saving:
-        return AppColors.textColor2;
-      default:
-        return AppColors.textColor2;
     }
   }
 }

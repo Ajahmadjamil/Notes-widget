@@ -2,51 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/notes/note_type.dart';
 import 'package:noteswidgetapp/core/shared/widgets/note_type_picker_sheet.dart';
 import 'package:noteswidgetapp/core/supabase/schema_capabilities.dart';
-import 'package:noteswidgetapp/core/theme/app_colors.dart';
 import 'package:noteswidgetapp/features/shared_note/collab_editor/view.dart';
 import 'package:noteswidgetapp/features/shared_note/handwriting_editor/view.dart';
 import 'package:noteswidgetapp/features/shared_note/model/shared_note.dart';
 import 'package:noteswidgetapp/features/shared_note/repository/shared_note_repository.dart';
 
-/// Resolves a shared note and routes to text, document, or handwriting editor.
-class SharedNoteEntryScreen extends StatefulWidget {
-  final String sharedNoteId;
-  final String friendLabel;
-  final String? friendUid;
-
-  const SharedNoteEntryScreen({
-    super.key,
+/// Resolves a shared note and decides which editor to open.
+class SharedNoteEntryController with ChangeNotifier {
+  SharedNoteEntryController({
     required this.sharedNoteId,
     required this.friendLabel,
     this.friendUid,
   });
 
-  @override
-  State<SharedNoteEntryScreen> createState() => _SharedNoteEntryScreenState();
-}
+  final String sharedNoteId;
+  final String friendLabel;
+  final String? friendUid;
 
-class _SharedNoteEntryScreenState extends State<SharedNoteEntryScreen> {
   final _repo = SharedNoteRepository();
-  bool _loading = true;
-  String? _error;
 
-  @override
-  void initState() {
-    super.initState();
-    _resolve();
-  }
+  bool isLoading = true;
+  String? error;
+  bool _disposed = false;
 
-  Future<void> _resolve() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> resolve(BuildContext context) async {
+    isLoading = true;
+    error = null;
+    _notify();
 
     SharedNote? note;
     for (var attempt = 0; attempt < 3; attempt++) {
       note = await _repo.resolveAndFetch(
-        preferredId: widget.sharedNoteId,
-        friendUid: widget.friendUid,
+        preferredId: sharedNoteId,
+        friendUid: friendUid,
       );
       if (note != null) break;
       if (attempt < 2) {
@@ -54,23 +42,23 @@ class _SharedNoteEntryScreenState extends State<SharedNoteEntryScreen> {
       }
     }
 
-    if (!mounted) return;
+    if (_disposed) return;
 
     if (note == null) {
-      setState(() {
-        _loading = false;
-        _error = 'Shared note could not be loaded.';
-      });
+      isLoading = false;
+      error = 'Shared note could not be loaded.';
+      _notify();
       return;
     }
 
     if (note.isUnset) {
+      if (!context.mounted) return;
       final type = await NoteTypePickerSheet.show(
         context,
         title: 'Shared note type',
         subtitle: 'Choose text, document, or handwriting',
       );
-      if (!mounted) return;
+      if (!context.mounted) return;
       if (type == null) {
         Navigator.of(context).pop();
         return;
@@ -92,23 +80,23 @@ class _SharedNoteEntryScreenState extends State<SharedNoteEntryScreen> {
       }
     }
 
-    if (!mounted) return;
-    _openEditor(note);
+    if (!context.mounted || _disposed) return;
+    openEditor(context, note);
   }
 
-  void _openEditor(SharedNote note) {
+  void openEditor(BuildContext context, SharedNote note) {
     final Widget screen;
     if (note.noteType == NoteType.drawing) {
       screen = SharedHandwritingEditorScreen(
         sharedNoteId: note.sharedNoteId,
-        friendLabel: widget.friendLabel,
-        friendUid: widget.friendUid,
+        friendLabel: friendLabel,
+        friendUid: friendUid,
       );
     } else {
       screen = SharedCollabEditorScreen(
         sharedNoteId: note.sharedNoteId,
-        friendLabel: widget.friendLabel,
-        friendUid: widget.friendUid,
+        friendLabel: friendLabel,
+        friendUid: friendUid,
         textOnly: note.noteType != NoteType.document,
       );
     }
@@ -118,20 +106,13 @@ class _SharedNoteEntryScreenState extends State<SharedNoteEntryScreen> {
     );
   }
 
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgColor,
-      body: Center(
-        child: _loading
-            ? CircularProgressIndicator(color: AppColors.selectedColor)
-            : _error != null
-                ? Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(_error!, textAlign: TextAlign.center),
-                  )
-                : const SizedBox.shrink(),
-      ),
-    );
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

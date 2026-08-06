@@ -4,7 +4,7 @@ import 'package:noteswidgetapp/features/notes/document_editor/view.dart';
 import 'package:noteswidgetapp/features/notes/handwriting_editor/view.dart';
 import 'package:noteswidgetapp/features/notes/model/note.dart';
 import 'package:noteswidgetapp/features/notes/note_editor/view.dart';
-import 'package:noteswidgetapp/features/shared_note/entry/shared_note_entry_screen.dart';
+import 'package:noteswidgetapp/features/shared_note/entry/view.dart';
 
 class NoteEditorLauncher {
   NoteEditorLauncher._();

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:noteswidgetapp/core/local_db/widget_onboarding_pref.dart';
 import 'package:noteswidgetapp/core/local_db/widget_pin_pref.dart';
 import 'package:noteswidgetapp/core/widget/widget_setup_helper.dart';
-import 'package:noteswidgetapp/features/home/view.dart';
+import 'package:noteswidgetapp/features/base_shell/view.dart';
 
 class WidgetOnboardingController with ChangeNotifier {
   bool isLoading = false;
